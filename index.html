@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>宣发设计一组工作量看板</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
 
@@ -746,8 +748,64 @@ function defaultData() {
   };
 }
 
-function loadData() { try { const s = localStorage.getItem('teamboard_v6'); if (s) { const d = JSON.parse(s); if (!d.other) d.other = { name: '其他', members: [] }; return d; } } catch(e) {} return defaultData(); }
-function saveData() { localStorage.setItem('teamboard_v6', JSON.stringify(DATA)); renderAll(); }
+// ========== FIREBASE ==========
+const firebaseConfig = {
+  apiKey: "AIzaSyCUicCPXCh6yWoKNkLQSamCcnaxSvGT_Pk",
+  authDomain: "one-team-e40db.firebaseapp.com",
+  databaseURL: "https://one-team-e40db-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "one-team-e40db",
+  storageBucket: "one-team-e40db.firebasestorage.app",
+  messagingSenderId: "645067813794",
+  appId: "1:645067813794:web:17583b01a97f66770ff8fb",
+  measurementId: "G-MFPVDV6EXC"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const dbRef = db.ref('teamboard');
+
+let _saving = false;
+
+function loadData() {
+  // Return default first, Firebase listener will update
+  try {
+    const s = localStorage.getItem('teamboard_v7');
+    if (s) { const d = JSON.parse(s); if (!d.other) d.other = { name: '其他', members: [] }; return d; }
+  } catch(e) {}
+  return defaultData();
+}
+
+function saveData() {
+  localStorage.setItem('teamboard_v7', JSON.stringify(DATA));
+  _saving = true;
+  dbRef.set(DATA).then(() => { _saving = false; }).catch(err => { _saving = false; console.error('Firebase save error:', err); });
+  renderAll();
+}
+
+// Listen for real-time changes from Firebase
+dbRef.on('value', (snapshot) => {
+  if (_saving) return; // Skip if we just saved
+  const val = snapshot.val();
+  if (val && val.design && val.video) {
+    if (!val.other) val.other = { name: '其他', members: [] };
+    DATA = val;
+    localStorage.setItem('teamboard_v7', JSON.stringify(DATA));
+    renderAll();
+    showToast('📡 数据已同步');
+  }
+});
+
+// Push default data to Firebase if empty
+dbRef.once('value', (snapshot) => {
+  if (!snapshot.val()) {
+    dbRef.set(DATA);
+  } else {
+    const val = snapshot.val();
+    if (!val.other) val.other = { name: '其他', members: [] };
+    DATA = val;
+    localStorage.setItem('teamboard_v7', JSON.stringify(DATA));
+    renderAll();
+  }
+});
 
 let DATA = loadData();
 let currentTab = 'all';
