@@ -333,7 +333,7 @@
   .edit-input:hover { border-color: var(--border); }
   .edit-input:focus { border-color: var(--yellow); outline: none; background: rgba(255,224,0,.04); }
   .edit-input.task-name { font-weight: 700; font-size: 15px; }
-  .edit-input.task-note { font-size: 13px; color: var(--text-dim); }
+  .edit-input.task-note { font-size: 13px; color: var(--text-dim); resize: none; overflow: hidden; min-height: 28px; line-height: 1.5; word-break: break-all; }
   .edit-input.task-note:focus { color: var(--text); }
   .edit-input.task-note::placeholder { color: rgba(110,110,120,.5); }
   input[type="date"].edit-input { color: var(--text-dim); font-size: 14px; padding: 5px 6px; }
@@ -518,6 +518,24 @@
   }
   .toast.show { opacity: 1; transform: translateY(0); }
 
+  /* ========== Staff Dropdown ========== */
+  .staff-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0;
+    background: var(--bg); border: 1px solid var(--border);
+    max-height: 200px; overflow-y: auto;
+    z-index: 10; display: none;
+  }
+  .staff-dropdown.show { display: block; }
+  .staff-item {
+    padding: 8px 14px; cursor: pointer;
+    font-size: 14px; display: flex; justify-content: space-between;
+    transition: background .1s;
+  }
+  .staff-item:hover { background: var(--yellow-dim); }
+  .staff-item .sid { color: var(--text-dim); font-size: 12px; }
+  .staff-item .sname { font-weight: 500; }
+  .staff-item.already { opacity: .35; pointer-events: none; }
+
   /* ========== Corner Decorations ========== */
   .corner-deco {
     position: fixed; pointer-events: none; z-index: 10;
@@ -562,7 +580,8 @@
       </div>
     </div>
     <div class="header-actions">
-      <button class="btn" onclick="exportData()">💾 导出</button>
+      <button class="btn" onclick="exportExcel()">📊 导出Excel</button>
+      <button class="btn" onclick="exportData()">💾 导出JSON</button>
       <button class="btn" onclick="document.getElementById('importFile').click()">📂 导入</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
       <button class="btn btn-primary" onclick="openAddMemberModal()">＋ 添加员工</button>
@@ -586,9 +605,14 @@
 <div class="modal-overlay" id="memberModal">
   <div class="modal">
     <h3>添加员工</h3>
+    <div class="form-group" style="position:relative">
+      <label>搜索（输入英文ID或中文名）</label>
+      <input class="form-input" id="mSearch" placeholder="输入英文ID或中文名搜索…" autocomplete="off" oninput="filterStaffList(this.value)">
+      <div id="staffDropdown" class="staff-dropdown"></div>
+    </div>
     <div class="form-group">
-      <label>姓名</label>
-      <input class="form-input" id="mName" placeholder="输入员工姓名">
+      <label>已选员工</label>
+      <input class="form-input" id="mName" placeholder="从上方搜索选择，或直接输入姓名" readonly style="cursor:default">
     </div>
     <div class="form-group">
       <label>所属组</label>
@@ -623,18 +647,113 @@ function defaultData() {
       { id: genId(), name: 'Tank', color: '#06b6d4', tasks: [] },
       { id: genId(), name: '小熊', color: '#f43f5e', tasks: [] },
     ]},
-    other: { name: '其他', members: [] }
+    other: { name: '其他', members: [
+      {id:genId(),name:'陈泽秋',color:COLORS[0%12],tasks:[]},
+      {id:genId(),name:'温梓煜',color:COLORS[1%12],tasks:[]},
+      {id:genId(),name:'何帆',color:COLORS[2%12],tasks:[]},
+      {id:genId(),name:'刘亚',color:COLORS[3%12],tasks:[]},
+      {id:genId(),name:'谭圣韬',color:COLORS[4%12],tasks:[]},
+      {id:genId(),name:'陈保惠',color:COLORS[5%12],tasks:[]},
+      {id:genId(),name:'左彬',color:COLORS[6%12],tasks:[]},
+      {id:genId(),name:'唐少衡',color:COLORS[7%12],tasks:[]},
+      {id:genId(),name:'陈金宇',color:COLORS[8%12],tasks:[]},
+      {id:genId(),name:'汪琦',color:COLORS[9%12],tasks:[]},
+      {id:genId(),name:'柳晨',color:COLORS[10%12],tasks:[]},
+      {id:genId(),name:'郭浩民',color:COLORS[11%12],tasks:[]},
+      {id:genId(),name:'余海',color:COLORS[0%12],tasks:[]},
+      {id:genId(),name:'李丹雅',color:COLORS[1%12],tasks:[]},
+      {id:genId(),name:'许文壮',color:COLORS[2%12],tasks:[]},
+      {id:genId(),name:'熊德英',color:COLORS[3%12],tasks:[]},
+      {id:genId(),name:'周湘东',color:COLORS[4%12],tasks:[]},
+      {id:genId(),name:'沈粤',color:COLORS[5%12],tasks:[]},
+      {id:genId(),name:'张国卫',color:COLORS[6%12],tasks:[]},
+      {id:genId(),name:'李思广',color:COLORS[7%12],tasks:[]},
+      {id:genId(),name:'陈铭',color:COLORS[8%12],tasks:[]},
+      {id:genId(),name:'罗辛望',color:COLORS[9%12],tasks:[]},
+      {id:genId(),name:'刘皓宇',color:COLORS[10%12],tasks:[]},
+      {id:genId(),name:'张裕桦',color:COLORS[11%12],tasks:[]},
+      {id:genId(),name:'曾庆娇',color:COLORS[0%12],tasks:[]},
+      {id:genId(),name:'高昊琳',color:COLORS[1%12],tasks:[]},
+      {id:genId(),name:'张洪伟',color:COLORS[2%12],tasks:[]},
+      {id:genId(),name:'黄芮',color:COLORS[3%12],tasks:[]},
+      {id:genId(),name:'王文',color:COLORS[4%12],tasks:[]},
+      {id:genId(),name:'王琦',color:COLORS[5%12],tasks:[]},
+      {id:genId(),name:'姚舒',color:COLORS[6%12],tasks:[]},
+      {id:genId(),name:'苏州',color:COLORS[7%12],tasks:[]},
+      {id:genId(),name:'万维杰',color:COLORS[8%12],tasks:[]},
+      {id:genId(),name:'梅园',color:COLORS[9%12],tasks:[]},
+      {id:genId(),name:'洪智荣',color:COLORS[10%12],tasks:[]},
+      {id:genId(),name:'王均杰',color:COLORS[11%12],tasks:[]},
+      {id:genId(),name:'朱桔沛',color:COLORS[0%12],tasks:[]},
+      {id:genId(),name:'辛开润',color:COLORS[1%12],tasks:[]},
+      {id:genId(),name:'欧阳嘉莹',color:COLORS[2%12],tasks:[]},
+      {id:genId(),name:'张智墾',color:COLORS[3%12],tasks:[]},
+      {id:genId(),name:'侯银龙',color:COLORS[4%12],tasks:[]},
+      {id:genId(),name:'柴霖霖',color:COLORS[5%12],tasks:[]},
+      {id:genId(),name:'李西林',color:COLORS[6%12],tasks:[]},
+      {id:genId(),name:'彭杨林',color:COLORS[7%12],tasks:[]},
+      {id:genId(),name:'朱丽莎',color:COLORS[8%12],tasks:[]},
+      {id:genId(),name:'徐立峰',color:COLORS[9%12],tasks:[]},
+      {id:genId(),name:'曾诗晴',color:COLORS[10%12],tasks:[]},
+      {id:genId(),name:'邵明绅',color:COLORS[11%12],tasks:[]},
+      {id:genId(),name:'程梦男',color:COLORS[0%12],tasks:[]},
+      {id:genId(),name:'郑松彬',color:COLORS[1%12],tasks:[]},
+      {id:genId(),name:'赵峰',color:COLORS[2%12],tasks:[]},
+      {id:genId(),name:'黄斌',color:COLORS[3%12],tasks:[]},
+      {id:genId(),name:'朴海兰',color:COLORS[4%12],tasks:[]},
+      {id:genId(),name:'刘芯',color:COLORS[5%12],tasks:[]},
+      {id:genId(),name:'杨佳航',color:COLORS[6%12],tasks:[]},
+      {id:genId(),name:'黄洽航',color:COLORS[7%12],tasks:[]},
+      {id:genId(),name:'房乾驰',color:COLORS[8%12],tasks:[]},
+      {id:genId(),name:'陈兰文',color:COLORS[9%12],tasks:[]},
+      {id:genId(),name:'王谕',color:COLORS[10%12],tasks:[]},
+      {id:genId(),name:'方奇',color:COLORS[11%12],tasks:[]},
+      {id:genId(),name:'索烨',color:COLORS[0%12],tasks:[]},
+      {id:genId(),name:'赵绘程',color:COLORS[1%12],tasks:[]},
+      {id:genId(),name:'杨思雨',color:COLORS[2%12],tasks:[]},
+      {id:genId(),name:'李诗童',color:COLORS[3%12],tasks:[]},
+      {id:genId(),name:'田珂',color:COLORS[4%12],tasks:[]},
+      {id:genId(),name:'郭天',color:COLORS[5%12],tasks:[]},
+      {id:genId(),name:'高锦桃',color:COLORS[6%12],tasks:[]},
+      {id:genId(),name:'葛亮',color:COLORS[7%12],tasks:[]},
+      {id:genId(),name:'卢晓媚',color:COLORS[8%12],tasks:[]},
+      {id:genId(),name:'刘彦伶',color:COLORS[9%12],tasks:[]},
+      {id:genId(),name:'马晓明',color:COLORS[10%12],tasks:[]},
+      {id:genId(),name:'江世宇',color:COLORS[11%12],tasks:[]},
+      {id:genId(),name:'栗石泉',color:COLORS[0%12],tasks:[]},
+      {id:genId(),name:'王晨宇',color:COLORS[1%12],tasks:[]},
+      {id:genId(),name:'谢清',color:COLORS[2%12],tasks:[]},
+      {id:genId(),name:'谢智锐',color:COLORS[3%12],tasks:[]},
+      {id:genId(),name:'李永乐',color:COLORS[4%12],tasks:[]},
+      {id:genId(),name:'周秀婷',color:COLORS[5%12],tasks:[]},
+      {id:genId(),name:'彭子威',color:COLORS[6%12],tasks:[]},
+      {id:genId(),name:'黄文鸿',color:COLORS[7%12],tasks:[]},
+      {id:genId(),name:'万旭鹏',color:COLORS[8%12],tasks:[]},
+      {id:genId(),name:'李徐锐',color:COLORS[9%12],tasks:[]},
+      {id:genId(),name:'郑艳',color:COLORS[10%12],tasks:[]},
+      {id:genId(),name:'黄嗣喆',color:COLORS[11%12],tasks:[]},
+      {id:genId(),name:'唐英祺',color:COLORS[0%12],tasks:[]},
+      {id:genId(),name:'洪诗懿',color:COLORS[1%12],tasks:[]},
+      {id:genId(),name:'陈洋',color:COLORS[2%12],tasks:[]},
+      {id:genId(),name:'罗媛媛',color:COLORS[3%12],tasks:[]},
+      {id:genId(),name:'张嘉敏',color:COLORS[4%12],tasks:[]},
+      {id:genId(),name:'张泽论',color:COLORS[5%12],tasks:[]},
+      {id:genId(),name:'李志帆',color:COLORS[6%12],tasks:[]},
+      {id:genId(),name:'彭志军',color:COLORS[7%12],tasks:[]},
+      {id:genId(),name:'聂子明',color:COLORS[8%12],tasks:[]},
+      {id:genId(),name:'袁洪珊',color:COLORS[9%12],tasks:[]},
+    ]}
   };
 }
 
-function loadData() { try { const s = localStorage.getItem('teamboard_v4'); if (s) { const d = JSON.parse(s); if (!d.other) d.other = { name: '其他', members: [] }; return d; } } catch(e) {} return defaultData(); }
-function saveData() { localStorage.setItem('teamboard_v4', JSON.stringify(DATA)); renderAll(); }
+function loadData() { try { const s = localStorage.getItem('teamboard_v6'); if (s) { const d = JSON.parse(s); if (!d.other) d.other = { name: '其他', members: [] }; return d; } } catch(e) {} return defaultData(); }
+function saveData() { localStorage.setItem('teamboard_v6', JSON.stringify(DATA)); renderAll(); }
 
 let DATA = loadData();
 let currentTab = 'all';
 
-function getAllMembers() { return [...DATA.design.members, ...DATA.video.members, ...DATA.other.members]; }
-function getFiltered() { const m = currentTab === 'design' ? DATA.design.members : currentTab === 'video' ? DATA.video.members : currentTab === 'other' ? DATA.other.members : getAllMembers(); return [...m].sort((a,b) => b.tasks.length - a.tasks.length); }
+function getAllMembers() { return [...DATA.design.members, ...DATA.video.members]; }
+function getFiltered() { const m = currentTab === 'design' ? DATA.design.members : currentTab === 'video' ? DATA.video.members : getAllMembers(); return [...m].sort((a,b) => b.tasks.length - a.tasks.length); }
 function getCounts(members) {
   const a = (members || getAllMembers()).flatMap(m => m.tasks);
   return { total: a.length, ongoing: a.filter(t=>t.status==='ongoing').length, done: a.filter(t=>t.status==='done').length, delayed: a.filter(t=>t.status==='delayed').length, pending: a.filter(t=>t.status==='pending').length };
@@ -644,7 +763,7 @@ function pColor(p) { return p>=80?'var(--green)':p>=50?'var(--blue)':p>=20?'var(
 function pColorJS(p) { p=+p; return p>=80?'#00e676':p>=50?'#448aff':p>=20?'#ffe000':'#ff4444'; }
 function impClass(v) { return {high:'imp-high',mid:'imp-mid',low:'imp-low'}[v||'mid']||'imp-mid'; }
 function priClass(v) { return {P0:'pri-p0',P1:'pri-p1',P2:'pri-p2',P3:'pri-p3'}[v||'P2']||'pri-p2'; }
-function getTeam(id) { return DATA.design.members.find(m=>m.id===id)?'design':DATA.video.members.find(m=>m.id===id)?'video':DATA.other.members.find(m=>m.id===id)?'other':null; }
+function getTeam(id) { return DATA.design.members.find(m=>m.id===id)?'design':DATA.video.members.find(m=>m.id===id)?'video':null; }
 function findM(id) { return getAllMembers().find(m=>m.id===id); }
 
 function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
@@ -653,13 +772,103 @@ function updateMName(id,v) { const m=findM(id); if(m){m.name=v;saveData();} }
 function updateTask(mid,tid,f,v) { const m=findM(mid); if(!m)return; const t=m.tasks.find(t=>t.id===tid); if(!t)return; if(f==='progress')v=Math.max(0,Math.min(100,+v||0)); t[f]=v; saveData(); }
 function addTask(mid) { const m=findM(mid); if(!m)return; const d=new Date().toISOString().split('T')[0]; const n=new Date(Date.now()+14*864e5).toISOString().split('T')[0]; m.tasks.push({id:genId(),name:'新需求',start:d,deadline:n,progress:0,status:'pending',thumbs:[],note:''}); saveData(); showToast('已添加需求'); }
 function delTask(mid,tid) { const m=findM(mid); if(!m)return; m.tasks=m.tasks.filter(t=>t.id!==tid); saveData(); showToast('已删除'); }
-function delMember(mid) { const k=getTeam(mid); if(!k)return; const m=findM(mid); if(!confirm('确定删除「'+m.name+'」及其所有需求？'))return; DATA[k].members=DATA[k].members.filter(m=>m.id!==mid); saveData(); showToast('已删除员工'); }
+function delMember(mid) { const k=getTeam(mid); if(!k)return; const m=findM(mid); if(!confirm('确定移除「'+m.name+'」？'))return; DATA[k].members=DATA[k].members.filter(m=>m.id!==mid); m.tasks=[]; DATA.other.members.push(m); saveData(); showToast('已移除，可重新添加'); }
 function addThumb(mid,tid) { const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=e=>{const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{const m=findM(mid); const t=m&&m.tasks.find(t=>t.id===tid); if(t){if(!t.thumbs)t.thumbs=[]; t.thumbs.push(ev.target.result); saveData(); showToast('已添加缩略图');}}; r.readAsDataURL(f);}; inp.click(); }
 function rmThumb(mid,tid,i) { const m=findM(mid); const t=m&&m.tasks.find(t=>t.id===tid); if(t&&t.thumbs){t.thumbs.splice(i,1);saveData();} }
 
-function openAddMemberModal() { document.getElementById('mName').value=''; document.getElementById('mGroup').value=currentTab==='video'?'video':currentTab==='other'?'other':'design'; document.getElementById('memberModal').classList.add('active'); setTimeout(()=>document.getElementById('mName').focus(),100); }
-function closeMemberModal() { document.getElementById('memberModal').classList.remove('active'); }
-function saveMember() { const n=document.getElementById('mName').value.trim(); if(!n){showToast('请输入姓名');return;} const g=document.getElementById('mGroup').value; const c=COLORS[DATA[g].members.length%COLORS.length]; DATA[g].members.push({id:genId(),name:n,color:c,tasks:[]}); closeMemberModal(); saveData(); showToast('已添加「'+n+'」'); }
+// ========== STAFF DIRECTORY ==========
+const STAFF_DIR = [
+  {en:'achurchen',cn:'陈泽秋'},{en:'aidenwen',cn:'温梓煜'},{en:'amehe',cn:'何帆'},
+  {en:'arthuryliu',cn:'刘亚'},{en:'austintan',cn:'谭圣韬'},{en:'baohuichen',cn:'陈保惠'},
+  {en:'bellazuo',cn:'左彬'},{en:'brocktang',cn:'唐少衡'},{en:'canyonchen',cn:'陈金宇'},
+  {en:'catwqwang',cn:'汪琦'},{en:'coleliu',cn:'柳晨'},{en:'connorhmguo',cn:'郭浩民'},
+  {en:'dahaiyu',cn:'余海'},{en:'danyali',cn:'李丹雅'},{en:'dazxu',cn:'许文壮'},
+  {en:'deyingxiong',cn:'熊德英'},{en:'djoyzhou',cn:'周湘东'},{en:'euyshen',cn:'沈粤'},
+  {en:'gareyzhang',cn:'张国卫'},{en:'gavinsgli',cn:'李思广'},{en:'gogogochen',cn:'陈铭'},
+  {en:'goodmanluo',cn:'罗辛望'},{en:'haoyyuliu',cn:'刘皓宇'},{en:'harmonzhang',cn:'张裕桦'},
+  {en:'hinkiuzeng',cn:'曾庆娇'},{en:'hotzgao',cn:'高昊琳'},{en:'howeizhang',cn:'张洪伟'},
+  {en:'iruihuang',cn:'黄芮'},{en:'islandwang',cn:'王文'},{en:'jasonqiwang',cn:'王琦'},
+  {en:'jasonsyao',cn:'姚舒'},{en:'jasonzsu',cn:'苏州'},{en:'jayjaywan',cn:'万维杰'},
+  {en:'jocelynmei',cn:'梅园'},{en:'joehong',cn:'洪智荣'},{en:'junjiexwang',cn:'王均杰'},
+  {en:'jupellezhu',cn:'朱桔沛'},{en:'kairunxin',cn:'辛开润'},{en:'karyouyang',cn:'欧阳嘉莹'},
+  {en:'kincheung',cn:'张智墾'},{en:'kunlonghou',cn:'侯银龙'},{en:'linlinchai',cn:'柴霖霖'},
+  {en:'linxiaoli',cn:'李西林'},{en:'linyangpeng',cn:'彭杨林'},{en:'lishazhu',cn:'朱丽莎'},
+  {en:'lylexu',cn:'徐立峰'},{en:'matoizeng',cn:'曾诗晴'},{en:'mcshao',cn:'邵明绅'},
+  {en:'mennancheng',cn:'程梦男'},{en:'mushanzheng',cn:'郑松彬'},{en:'neofzhao',cn:'赵峰'},
+  {en:'nickbhuang',cn:'黄斌'},{en:'ninapiao',cn:'朴海兰'},{en:'nyxxliu',cn:'刘芯'},
+  {en:'orsonyang',cn:'杨佳航'},{en:'qiaahhuang',cn:'黄洽航'},{en:'qianchifang',cn:'房乾驰'},
+  {en:'rhettchen',cn:'陈兰文'},{en:'risingwang',cn:'王谕'},{en:'ritchiefang',cn:'方奇'},
+  {en:'sawyersuo',cn:'索烨'},{en:'scottiezhao',cn:'赵绘程'},{en:'sheilayyang',cn:'杨思雨'},
+  {en:'stongtongli',cn:'李诗童'},{en:'tanktian',cn:'田珂'},{en:'tiantianguo',cn:'郭天'},
+  {en:'tutugao',cn:'高锦桃'},{en:'v_gliangge',cn:'葛亮'},{en:'v_lxmeilu',cn:'卢晓媚'},
+  {en:'v_lylgliu',cn:'刘彦伶'},{en:'v_mxmma',cn:'马晓明'},{en:'v_shiyjiang',cn:'江世宇'},
+  {en:'v_ssqnsu',cn:'栗石泉'},{en:'v_wcywwang',cn:'王晨宇'},{en:'v_xqinggxie',cn:'谢清'},
+  {en:'v_xzyuexie',cn:'谢智锐'},{en:'v_yongleli',cn:'李永乐'},{en:'v_zxtgzhou',cn:'周秀婷'},
+  {en:'waitepeng',cn:'彭子威'},{en:'winnhuang',cn:'黄文鸿'},{en:'xupengwan',cn:'万旭鹏'},
+  {en:'xuruili',cn:'李徐锐'},{en:'yasminzheng',cn:'郑艳'},{en:'yasuohuang',cn:'黄嗣喆'},
+  {en:'yingqitang',cn:'唐英祺'},{en:'yishihong',cn:'洪诗懿'},{en:'youngcchen',cn:'陈洋'},
+  {en:'yuanyuanluo',cn:'罗媛媛'},{en:'zanzhang',cn:'张嘉敏'},{en:'zelunzhang',cn:'张泽论'},
+  {en:'zhifanli',cn:'李志帆'},{en:'zhijunpeng',cn:'彭志军'},{en:'zimingnie',cn:'聂子明'},
+  {en:'sidyuan',cn:'袁洪珊'},
+];
+
+function getExistingNames() {
+  return getAllMembers().map(m => m.name);
+}
+
+function filterStaffList(query) {
+  const dd = document.getElementById('staffDropdown');
+  const q = query.toLowerCase().trim();
+  if (!q) { dd.classList.remove('show'); dd.innerHTML=''; return; }
+  const existing = getExistingNames();
+  const matched = STAFF_DIR.filter(s => s.en.toLowerCase().includes(q) || s.cn.includes(q)).slice(0, 10);
+  if (!matched.length) { dd.classList.remove('show'); dd.innerHTML=''; return; }
+  dd.innerHTML = matched.map(s => {
+    const isAdded = existing.includes(s.cn);
+    return `<div class="staff-item ${isAdded?'already':''}" onclick="selectStaff('${s.cn}')">
+      <span class="sname">${s.cn}</span>
+      <span class="sid">${s.en}${isAdded?' (已添加)':''}</span>
+    </div>`;
+  }).join('');
+  dd.classList.add('show');
+}
+
+function selectStaff(cnName) {
+  document.getElementById('mName').value = cnName;
+  document.getElementById('mSearch').value = '';
+  document.getElementById('staffDropdown').classList.remove('show');
+}
+
+function openAddMemberModal() {
+  document.getElementById('mName').value='';
+  document.getElementById('mSearch').value='';
+  document.getElementById('staffDropdown').classList.remove('show');
+  document.getElementById('mGroup').value=currentTab==='video'?'video':'design';
+  document.getElementById('memberModal').classList.add('active');
+  setTimeout(()=>document.getElementById('mSearch').focus(),100);
+}
+function closeMemberModal() { document.getElementById('memberModal').classList.remove('active'); document.getElementById('staffDropdown').classList.remove('show'); }
+function saveMember() {
+  const n=document.getElementById('mName').value.trim();
+  if(!n){showToast('请选择或输入姓名');return;}
+  const g=document.getElementById('mGroup').value;
+  // Check if this person exists in the other (database) group
+  const dbIdx = DATA.other.members.findIndex(m => m.name === n);
+  if (dbIdx >= 0) {
+    // Move from database to target group
+    const person = DATA.other.members.splice(dbIdx, 1)[0];
+    person.tasks = [];
+    DATA[g].members.push(person);
+  } else {
+    // Check not already in target group
+    if (DATA[g].members.find(m => m.name === n)) { showToast('该员工已在此组'); closeMemberModal(); return; }
+    const c=COLORS[DATA[g].members.length%COLORS.length];
+    DATA[g].members.push({id:genId(),name:n,color:c,tasks:[]});
+  }
+  closeMemberModal();
+  saveData();
+  showToast('已添加「'+n+'」');
+}
 
 // ========== RENDER ==========
 function renderAll() {
@@ -680,12 +889,10 @@ function renderStats() {
 function renderTabs() {
   const dC=DATA.design.members.reduce((s,m)=>s+m.tasks.length,0);
   const vC=DATA.video.members.reduce((s,m)=>s+m.tasks.length,0);
-  const oC=DATA.other.members.reduce((s,m)=>s+m.tasks.length,0);
   document.getElementById('tabBar').innerHTML = `
-    <button class="tab-btn ${currentTab==='all'?'active':''}" onclick="switchTab('all')">ALL <span class="badge">${dC+vC+oC}</span></button>
+    <button class="tab-btn ${currentTab==='all'?'active':''}" onclick="switchTab('all')">ALL <span class="badge">${dC+vC}</span></button>
     <button class="tab-btn ${currentTab==='design'?'active':''}" onclick="switchTab('design')">DESIGN <span class="badge">${dC}</span></button>
     <button class="tab-btn ${currentTab==='video'?'active':''}" onclick="switchTab('video')">VIDEO <span class="badge">${vC}</span></button>
-    <button class="tab-btn ${currentTab==='other'?'active':''}" onclick="switchTab('other')">OTHER <span class="badge">${oC}</span></button>
   `;
 }
 
@@ -731,7 +938,7 @@ function renderTable() {
             <option value="P2" ${(t.priority||'P2')==='P2'?'selected':''}>P2</option>
             <option value="P3" ${(t.priority||'P2')==='P3'?'selected':''}>P3</option>
           </select>
-          <input class="edit-input task-note" value="${t.note||''}" placeholder="填写进度备注…" onchange="updateTask('${m.id}','${t.id}','note',this.value)">
+          <textarea class="edit-input task-note" rows="1" placeholder="填写进度备注…" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'" onchange="updateTask('${m.id}','${t.id}','note',this.value)">${t.note||''}</textarea>
           <select class="status-select ${t.status}" onchange="updateTask('${m.id}','${t.id}','status',this.value);this.className='status-select '+this.value">
             <option value="pending" ${t.status==='pending'?'selected':''}>待启动</option>
             <option value="ongoing" ${t.status==='ongoing'?'selected':''}>进行中</option>
@@ -778,7 +985,52 @@ function renderSidebar() {
 
 function switchTab(t) { currentTab=t; renderTabs(); renderTable(); renderSidebar(); }
 
-function exportData() { const b=new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download='teamboard_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(u); showToast('已导出'); }
+function exportData() { const b=new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download='teamboard_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(u); showToast('已导出JSON'); }
+
+function exportExcel() {
+  const statusMap = {ongoing:'进行中',done:'已完成',delayed:'已延期',pending:'待启动'};
+  const groupMap = {design:'平面组',video:'视频组',other:'其他'};
+  const rows = [['分组','员工','需求名称','启动日期','交付节点','进度(%)','优先级','状态','备注']];
+  ['design','video','other'].forEach(gk => {
+    if (!DATA[gk]) return;
+    DATA[gk].members.forEach(m => {
+      if (!m.tasks.length) {
+        rows.push([groupMap[gk]||gk, m.name, '', '', '', '', '', '', '']);
+      }
+      m.tasks.forEach(t => {
+        rows.push([
+          groupMap[gk]||gk,
+          m.name,
+          t.name,
+          t.start,
+          t.deadline,
+          t.progress,
+          t.priority||'P2',
+          statusMap[t.status]||t.status,
+          (t.note||'').replace(/\n/g,' ')
+        ]);
+      });
+    });
+  });
+
+  // Build CSV with BOM for Excel Chinese support
+  let csv = '\uFEFF';
+  rows.forEach(r => {
+    csv += r.map(c => {
+      const s = String(c==null?'':c);
+      return s.indexOf(',')>-1 || s.indexOf('"')>-1 || s.indexOf('\n')>-1 ? '"'+s.replace(/"/g,'""')+'"' : s;
+    }).join(',') + '\r\n';
+  });
+
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '工作量看板_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('已导出 Excel');
+}
 function importData(e) { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.design&&d.video){DATA=d;saveData();showToast('导入成功');}else showToast('格式错误');}catch(err){showToast('导入失败');}}; r.readAsText(f); e.target.value=''; }
 
 document.getElementById('memberModal').addEventListener('click',function(e){if(e.target===this)closeMemberModal();});
