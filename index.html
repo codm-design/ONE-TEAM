@@ -304,7 +304,7 @@
   /* ========== Task Grid ========== */
   .task-grid {
     display: grid;
-    grid-template-columns: 1.2fr 115px 115px 150px 70px 1.3fr 90px 32px;
+    grid-template-columns: 1.2fr 115px 115px 150px 70px 80px 80px 1.3fr 90px 32px;
     gap: 0; align-items: center;
     padding: 0 24px;
   }
@@ -385,6 +385,24 @@
   .status-select.delayed { background: var(--red-dim); color: var(--red); border-color: rgba(255,68,68,.2); }
   .status-select.pending { background: var(--yellow-dim); color: var(--yellow); border-color: rgba(255,224,0,.2); }
   .status-select option { background: var(--surface); color: var(--text); }
+
+  /* Level selects */
+  .level-select {
+    -webkit-appearance: none; appearance: none;
+    padding: 3px 6px; border: 1px solid transparent;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    outline: none; transition: all .15s;
+    font-family: var(--font-cn); letter-spacing: .5px;
+    border-radius: 3px; background: var(--white-dim); color: var(--text-dim);
+  }
+  .level-select option { background: var(--surface); color: var(--text); }
+  .level-select.imp-high { background: rgba(255,68,68,.15); color: #ff4444; border-color: rgba(255,68,68,.25); }
+  .level-select.imp-mid { background: rgba(255,224,0,.12); color: #ffe000; border-color: rgba(255,224,0,.2); }
+  .level-select.imp-low { background: rgba(255,255,255,.06); color: var(--text-dim); border-color: rgba(255,255,255,.08); }
+  .level-select.pri-p0 { background: rgba(255,68,68,.15); color: #ff4444; border-color: rgba(255,68,68,.25); }
+  .level-select.pri-p1 { background: rgba(255,165,0,.12); color: #ffa500; border-color: rgba(255,165,0,.2); }
+  .level-select.pri-p2 { background: rgba(255,224,0,.12); color: #ffe000; border-color: rgba(255,224,0,.2); }
+  .level-select.pri-p3 { background: rgba(255,255,255,.06); color: var(--text-dim); border-color: rgba(255,255,255,.08); }
 
   /* ========== Sidebar ========== */
   .sidebar { display: flex; flex-direction: column; gap: 16px; }
@@ -622,6 +640,8 @@ function getCounts(members) {
 function statusLabel(s) { return { ongoing:'进行中', done:'已完成', delayed:'已延期', pending:'待启动' }[s]||s; }
 function pColor(p) { return p>=80?'var(--green)':p>=50?'var(--blue)':p>=20?'var(--yellow)':'var(--red)'; }
 function pColorJS(p) { p=+p; return p>=80?'#00e676':p>=50?'#448aff':p>=20?'#ffe000':'#ff4444'; }
+function impClass(v) { return {high:'imp-high',mid:'imp-mid',low:'imp-low'}[v||'mid']||'imp-mid'; }
+function priClass(v) { return {P0:'pri-p0',P1:'pri-p1',P2:'pri-p2',P3:'pri-p3'}[v||'P2']||'pri-p2'; }
 function getTeam(id) { return DATA.design.members.find(m=>m.id===id)?'design':DATA.video.members.find(m=>m.id===id)?'video':null; }
 function findM(id) { return getAllMembers().find(m=>m.id===id); }
 
@@ -685,8 +705,10 @@ function renderTable() {
     </div>`;
 
     if (m.tasks.length) {
-      html += `<div class="task-grid task-grid-header"><span>需求名称</span><span>启动</span><span>交付</span><span>进度</span><span>缩略</span><span>备注</span><span>状态</span><span></span></div>`;
-      m.tasks.forEach(t => {
+      const priOrder = {P0:0,P1:1,P2:2,P3:3};
+      const sorted = [...m.tasks].sort((a,b) => (priOrder[a.priority||'P2']||2) - (priOrder[b.priority||'P2']||2));
+      html += `<div class="task-grid task-grid-header"><span>需求名称</span><span>启动</span><span>交付</span><span>进度</span><span>缩略</span><span>重要级</span><span>优先级</span><span>备注</span><span>状态</span><span></span></div>`;
+      sorted.forEach(t => {
         const ths = (t.thumbs||[]).map((s,i)=>`<div class="thumb" onclick="rmThumb('${m.id}','${t.id}',${i})" title="点击移除"><img src="${s}"></div>`).join('');
         html += `<div class="task-grid task-row">
           <input class="edit-input task-name" value="${t.name}" onchange="updateTask('${m.id}','${t.id}','name',this.value)">
@@ -699,6 +721,17 @@ function renderTable() {
             <span class="progress-pct" style="color:${pColor(t.progress)}">${t.progress}%</span>
           </div>
           <div class="thumb-cell">${ths}<div class="thumb-add" onclick="addThumb('${m.id}','${t.id}')">＋</div></div>
+          <select class="level-select ${impClass(t.importance)}" onchange="updateTask('${m.id}','${t.id}','importance',this.value);this.className='level-select '+impClass(this.value)">
+            <option value="high" ${(t.importance||'mid')==='high'?'selected':''}>🔴 高</option>
+            <option value="mid" ${(t.importance||'mid')==='mid'?'selected':''}>🟡 中</option>
+            <option value="low" ${(t.importance||'mid')==='low'?'selected':''}>⚪ 低</option>
+          </select>
+          <select class="level-select ${priClass(t.priority)}" onchange="updateTask('${m.id}','${t.id}','priority',this.value);this.className='level-select '+priClass(this.value)">
+            <option value="P0" ${(t.priority||'P2')==='P0'?'selected':''}>P0</option>
+            <option value="P1" ${(t.priority||'P2')==='P1'?'selected':''}>P1</option>
+            <option value="P2" ${(t.priority||'P2')==='P2'?'selected':''}>P2</option>
+            <option value="P3" ${(t.priority||'P2')==='P3'?'selected':''}>P3</option>
+          </select>
           <input class="edit-input task-note" value="${t.note||''}" placeholder="填写进度备注…" onchange="updateTask('${m.id}','${t.id}','note',this.value)">
           <select class="status-select ${t.status}" onchange="updateTask('${m.id}','${t.id}','status',this.value);this.className='status-select '+this.value">
             <option value="pending" ${t.status==='pending'?'selected':''}>待启动</option>
