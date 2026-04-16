@@ -754,7 +754,13 @@ let _dbRef = null;
 function loadData() {
   try {
     const s = localStorage.getItem('tb_data');
-    if (s) { const d = JSON.parse(s); if (d.design && d.video) { if (!d.other) d.other={name:'其他',members:[]}; return d; } }
+    if (s) {
+      const d = JSON.parse(s);
+      if (d.design && d.video && d.design.members.length > 0) {
+        if (!d.other) d.other = { name: '其他', members: [] };
+        return d;
+      }
+    }
   } catch(e) {}
   return defaultData();
 }
@@ -796,21 +802,36 @@ function initFirebase() {
       _dbRef = firebase.database().ref('teamboard');
       _fbReady = true;
 
+      // Helper: count total tasks across all visible groups
+      function countTasks(d) {
+        let n = 0;
+        if (d.design) d.design.members.forEach(m => n += (m.tasks||[]).length);
+        if (d.video) d.video.members.forEach(m => n += (m.tasks||[]).length);
+        return n;
+      }
+
       // Sync from cloud
       _dbRef.once('value').then(snap => {
         const cloud = snap.val();
         if (cloud && cloud.design && cloud.video) {
           if (!cloud.other) cloud.other = { name: '其他', members: [] };
-          DATA = cloud;
-          localStorage.setItem('tb_data', JSON.stringify(DATA));
-          renderAll();
-          showToast('📡 已从云端同步');
+          // Only use cloud data if it has real content (members with tasks)
+          // or if local data is still default (no tasks)
+          const cloudTasks = countTasks(cloud);
+          const localTasks = countTasks(DATA);
+          if (cloudTasks > 0 || localTasks === 0) {
+            DATA = cloud;
+            localStorage.setItem('tb_data', JSON.stringify(DATA));
+            renderAll();
+            showToast('📡 已从云端同步');
+          }
         } else {
+          // Cloud is empty, push our local data
           _dbRef.set(DATA);
         }
       });
 
-      // Real-time listener
+      // Real-time listener for subsequent changes
       _dbRef.on('value', snap => {
         if (_saving) return;
         const val = snap.val();
@@ -891,7 +912,8 @@ const STAFF_DIR = [
 ];
 
 function getExistingNames() {
-  return getAllMembers().map(m => m.name);
+  const all = [...DATA.design.members, ...DATA.video.members];
+  return all.map(m => m.name);
 }
 
 function filterStaffList(query) {
