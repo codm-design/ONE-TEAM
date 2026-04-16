@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>宣发设计一组工作量看板</title>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
 
@@ -748,64 +746,86 @@ function defaultData() {
   };
 }
 
-// ========== FIREBASE ==========
-const firebaseConfig = {
-  apiKey: "AIzaSyCUicCPXCh6yWoKNkLQSamCcnaxSvGT_Pk",
-  authDomain: "one-team-e40db.firebaseapp.com",
-  databaseURL: "https://one-team-e40db-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "one-team-e40db",
-  storageBucket: "one-team-e40db.firebasestorage.app",
-  messagingSenderId: "645067813794",
-  appId: "1:645067813794:web:17583b01a97f66770ff8fb",
-  measurementId: "G-MFPVDV6EXC"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const dbRef = db.ref('teamboard');
-
+// ========== STORAGE (Firebase + localStorage fallback) ==========
 let _saving = false;
+let _fbReady = false;
+let _dbRef = null;
 
 function loadData() {
-  // Return default first, Firebase listener will update
   try {
-    const s = localStorage.getItem('teamboard_v7');
-    if (s) { const d = JSON.parse(s); if (!d.other) d.other = { name: '其他', members: [] }; return d; }
+    const s = localStorage.getItem('tb_data');
+    if (s) { const d = JSON.parse(s); if (d.design && d.video) { if (!d.other) d.other={name:'其他',members:[]}; return d; } }
   } catch(e) {}
   return defaultData();
 }
 
 function saveData() {
-  localStorage.setItem('teamboard_v7', JSON.stringify(DATA));
-  _saving = true;
-  dbRef.set(DATA).then(() => { _saving = false; }).catch(err => { _saving = false; console.error('Firebase save error:', err); });
+  localStorage.setItem('tb_data', JSON.stringify(DATA));
+  if (_fbReady && _dbRef) {
+    _saving = true;
+    _dbRef.set(DATA).then(() => { _saving = false; }).catch(err => { _saving = false; });
+  }
   renderAll();
 }
 
-// Listen for real-time changes from Firebase
-dbRef.on('value', (snapshot) => {
-  if (_saving) return; // Skip if we just saved
-  const val = snapshot.val();
-  if (val && val.design && val.video) {
-    if (!val.other) val.other = { name: '其他', members: [] };
-    DATA = val;
-    localStorage.setItem('teamboard_v7', JSON.stringify(DATA));
-    renderAll();
-    showToast('📡 数据已同步');
+// Try to init Firebase after page loads (dynamic async load)
+function initFirebase() {
+  function loadScript(url) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = url;
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
   }
-});
 
-// Push default data to Firebase if empty
-dbRef.once('value', (snapshot) => {
-  if (!snapshot.val()) {
-    dbRef.set(DATA);
-  } else {
-    const val = snapshot.val();
-    if (!val.other) val.other = { name: '其他', members: [] };
-    DATA = val;
-    localStorage.setItem('teamboard_v7', JSON.stringify(DATA));
-    renderAll();
-  }
-});
+  // Load Firebase SDK dynamically
+  loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js')
+    .then(() => loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js'))
+    .then(() => {
+      firebase.initializeApp({
+        apiKey: "AIzaSyCUicCPXCh6yWoKNkLQSamCcnaxSvGT_Pk",
+        authDomain: "one-team-e40db.firebaseapp.com",
+        databaseURL: "https://one-team-e40db-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "one-team-e40db",
+        storageBucket: "one-team-e40db.firebasestorage.app",
+        messagingSenderId: "645067813794",
+        appId: "1:645067813794:web:17583b01a97f66770ff8fb"
+      });
+      _dbRef = firebase.database().ref('teamboard');
+      _fbReady = true;
+
+      // Sync from cloud
+      _dbRef.once('value').then(snap => {
+        const cloud = snap.val();
+        if (cloud && cloud.design && cloud.video) {
+          if (!cloud.other) cloud.other = { name: '其他', members: [] };
+          DATA = cloud;
+          localStorage.setItem('tb_data', JSON.stringify(DATA));
+          renderAll();
+          showToast('📡 已从云端同步');
+        } else {
+          _dbRef.set(DATA);
+        }
+      });
+
+      // Real-time listener
+      _dbRef.on('value', snap => {
+        if (_saving) return;
+        const val = snap.val();
+        if (val && val.design && val.video) {
+          if (!val.other) val.other = { name: '其他', members: [] };
+          DATA = val;
+          localStorage.setItem('tb_data', JSON.stringify(DATA));
+          renderAll();
+        }
+      });
+    })
+    .catch(err => {
+      console.warn('Firebase SDK load failed, using local storage only:', err);
+    });
+}
 
 let DATA = loadData();
 let currentTab = 'all';
@@ -1094,7 +1114,9 @@ function importData(e) { const f=e.target.files[0]; if(!f)return; const r=new Fi
 document.getElementById('memberModal').addEventListener('click',function(e){if(e.target===this)closeMemberModal();});
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeMemberModal();});
 
+// Init: render immediately, then try Firebase
 renderAll();
+setTimeout(initFirebase, 500);
 </script>
 </body>
 </html>
