@@ -615,13 +615,14 @@
     </div>
     <div class="form-group">
       <label>已选员工</label>
-      <input class="form-input" id="mName" placeholder="从上方搜索选择，或直接输入姓名" readonly style="cursor:default">
+      <input class="form-input" id="mName" placeholder="从上方搜索选择，或直接输入姓名">
     </div>
     <div class="form-group">
       <label>所属组</label>
       <select class="form-select" id="mGroup">
         <option value="design">🎨 平面组</option>
         <option value="video">🎬 视频组</option>
+        <option value="cp">🟢 CP组</option>
         <option value="other">📁 其他</option>
       </select>
     </div>
@@ -657,6 +658,9 @@ function defaultData() {
       { id: genId(), name: 'Suoye', color: '#a855f7', tasks: [] },
       { id: genId(), name: 'Tank', color: '#06b6d4', tasks: [] },
       { id: genId(), name: '小熊', color: '#f43f5e', tasks: [] },
+    ]},
+    cp: { name: 'CP组', members: [
+      { id: genId(), name: '', color: '#00e676', tasks: [] },
     ]},
     other: { name: '其他', members: [
       {id:genId(),name:'陈泽秋',color:COLORS[0%12],tasks:[]},
@@ -783,8 +787,9 @@ function loadData() {
       // Validate data structure strictly
       if (d && typeof d === 'object' && d.design && d.video &&
         Array.isArray(d.design.members) && Array.isArray(d.video.members) &&
-        (d.design.members.length + d.video.members.length) > 0) {
+        (d.design.members.length + d.video.members.length + (d.cp && d.cp.members ? d.cp.members.length : 0)) > 0) {
         if (!d.other) d.other = { name: '其他', members: [] };
+        if (!d.cp) d.cp = { name: 'CP组', members: [] };
         console.log('[BOARD] Loaded data from storage, design:', d.design.members.length, 'video:', d.video.members.length);
         return d;
       }
@@ -834,11 +839,12 @@ function initFirebase() {
       _dbRef = firebase.database().ref('teamboard');
       _fbReady = true;
 
-      // Count members in design+video
+      // Count members in design+video+cp
       function countMembers(d) {
         let n = 0;
         if (d.design) n += d.design.members.length;
         if (d.video) n += d.video.members.length;
+        if (d.cp) n += d.cp.members.length;
         return n;
       }
 
@@ -854,8 +860,9 @@ function initFirebase() {
           // Cloud has real data — validate and use it
           try {
             if (!cloud.other) cloud.other = { name: '其他', members: [] };
+            if (!cloud.cp) cloud.cp = { name: 'CP组', members: [] };
             // Extra safety: ensure all members have required fields
-            [cloud.design, cloud.video].forEach(g => {
+            [cloud.design, cloud.video, cloud.cp].forEach(g => {
               g.members.forEach(m => { if (!m.tasks) m.tasks = []; if (!m.color) m.color = '#ffe000'; });
             });
             DATA = cloud;
@@ -882,7 +889,8 @@ function initFirebase() {
           if (hasMembers) {
             try {
               if (!val.other) val.other = { name: '其他', members: [] };
-              [val.design, val.video].forEach(g => {
+              if (!val.cp) val.cp = { name: 'CP组', members: [] };
+              [val.design, val.video, val.cp].forEach(g => {
                 g.members.forEach(m => { if (!m.tasks) m.tasks = []; });
               });
               DATA = val;
@@ -903,8 +911,8 @@ function initFirebase() {
 let DATA = loadData();
 let currentTab = 'all';
 
-function getAllMembers() { return [...DATA.design.members, ...DATA.video.members]; }
-function getFiltered() { const m = currentTab === 'design' ? DATA.design.members : currentTab === 'video' ? DATA.video.members : getAllMembers(); return [...m].sort((a,b) => b.tasks.length - a.tasks.length); }
+function getAllMembers() { return [...DATA.design.members, ...DATA.video.members, ...DATA.cp.members]; }
+function getFiltered() { const m = currentTab === 'design' ? DATA.design.members : currentTab === 'video' ? DATA.video.members : currentTab === 'cp' ? DATA.cp.members : getAllMembers(); return [...m].sort((a,b) => b.tasks.length - a.tasks.length); }
 function getCounts(members) {
   const a = (members || getAllMembers()).flatMap(m => m.tasks);
   return { total: a.length, ongoing: a.filter(t=>t.status==='ongoing').length, done: a.filter(t=>t.status==='done').length, delayed: a.filter(t=>t.status==='delayed').length, pending: a.filter(t=>t.status==='pending').length };
@@ -914,7 +922,7 @@ function pColor(p) { return p>=80?'var(--green)':p>=50?'var(--blue)':p>=20?'var(
 function pColorJS(p) { p=+p; return p>=80?'#00e676':p>=50?'#448aff':p>=20?'#ffe000':'#ff4444'; }
 function impClass(v) { return {high:'imp-high',mid:'imp-mid',low:'imp-low'}[v||'mid']||'imp-mid'; }
 function priClass(v) { return {P0:'pri-p0',P1:'pri-p1',P2:'pri-p2',P3:'pri-p3'}[v||'P2']||'pri-p2'; }
-function getTeam(id) { return DATA.design.members.find(m=>m.id===id)?'design':DATA.video.members.find(m=>m.id===id)?'video':null; }
+function getTeam(id) { return DATA.design.members.find(m=>m.id===id)?'design':DATA.video.members.find(m=>m.id===id)?'video':DATA.cp.members.find(m=>m.id===id)?'cp':null; }
 function findM(id) { return getAllMembers().find(m=>m.id===id); }
 
 function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
@@ -995,7 +1003,7 @@ function openAddMemberModal() {
   document.getElementById('mName').value='';
   document.getElementById('mSearch').value='';
   document.getElementById('staffDropdown').classList.remove('show');
-  document.getElementById('mGroup').value=currentTab==='video'?'video':'design';
+  document.getElementById('mGroup').value=currentTab==='video'?'video':currentTab==='cp'?'cp':'design';
   document.getElementById('memberModal').classList.add('active');
   setTimeout(()=>document.getElementById('mSearch').focus(),100);
 }
@@ -1052,10 +1060,12 @@ function renderTabs() {
   try {
     const dC=DATA.design.members.reduce((s,m)=>s+m.tasks.length,0);
     const vC=DATA.video.members.reduce((s,m)=>s+m.tasks.length,0);
+    const cC=DATA.cp.members.reduce((s,m)=>s+m.tasks.length,0);
     document.getElementById('tabBar').innerHTML = `
-      <button class="tab-btn ${currentTab==='all'?'active':''}" onclick="switchTab('all')">ALL <span class="badge">${dC+vC}</span></button>
+      <button class="tab-btn ${currentTab==='all'?'active':''}" onclick="switchTab('all')">ALL <span class="badge">${dC+vC+cC}</span></button>
       <button class="tab-btn ${currentTab==='design'?'active':''}" onclick="switchTab('design')">DESIGN <span class="badge">${dC}</span></button>
       <button class="tab-btn ${currentTab==='video'?'active':''}" onclick="switchTab('video')">VIDEO <span class="badge">${vC}</span></button>
+      <button class="tab-btn ${currentTab==='cp'?'active':''}" onclick="switchTab('cp')">CP <span class="badge">${cC}</span></button>
     `;
   } catch(e) { console.error('[BOARD] renderTabs error:', e); }
 }
@@ -1157,9 +1167,9 @@ function exportData() { const b=new Blob([JSON.stringify(DATA,null,2)],{type:'ap
 
 function exportExcel() {
   const statusMap = {ongoing:'进行中',done:'已完成',delayed:'已延期',pending:'待启动'};
-  const groupMap = {design:'平面组',video:'视频组',other:'其他'};
+  const groupMap = {design:'平面组',video:'视频组',cp:'CP组',other:'其他'};
   const rows = [['分组','员工','需求名称','启动日期','交付节点','进度(%)','优先级','状态','备注']];
-  ['design','video','other'].forEach(gk => {
+  ['design','video','cp','other'].forEach(gk => {
     if (!DATA[gk]) return;
     DATA[gk].members.forEach(m => {
       if (!m.tasks.length) {
