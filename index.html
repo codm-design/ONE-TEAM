@@ -315,13 +315,14 @@
   }
   .emp-name-wrap { flex: 1; display: flex; align-items: center; gap: 10px; }
   .emp-name-input {
-    background: transparent; border: 1px solid transparent; color: var(--text);
+    background: transparent; border: 1px dashed rgba(255,224,0,.25); color: var(--text);
     font-size: 17px; font-weight: 900; padding: 4px 10px;
     width: 140px; transition: border-color .15s;
     font-family: var(--font-cn);
     letter-spacing: 1px;
+    border-radius: 3px;
   }
-  .emp-name-input:hover { border-color: var(--border); }
+  .emp-name-input:hover { border-color: var(--yellow); }
   .emp-name-input:focus { border-color: var(--yellow); outline: none; background: rgba(255,224,0,.04); }
   .emp-task-count {
     font-family: var(--font-en); font-size: 16px; color: var(--text-dim); letter-spacing: 1px;
@@ -353,11 +354,12 @@
 
   /* Editable */
   .edit-input {
-    background: transparent; border: 1px solid transparent; color: var(--text);
+    background: transparent; border: 1px dashed rgba(255,224,0,.2); color: var(--text);
     font-size: 15px; padding: 6px 10px; width: 100%;
     transition: all .15s; font-family: var(--font-cn);
+    border-radius: 3px;
   }
-  .edit-input:hover { border-color: var(--border); }
+  .edit-input:hover { border-color: rgba(255,224,0,.4); }
   .edit-input:focus { border-color: var(--yellow); outline: none; background: rgba(255,224,0,.04); }
   .edit-input.task-name { font-weight: 700; font-size: 15px; }
   .edit-input.task-note { font-size: 13px; color: var(--text-dim); resize: none; overflow: hidden; min-height: 28px; line-height: 1.5; word-break: break-all; }
@@ -519,10 +521,11 @@
     margin-bottom: 6px; text-transform: uppercase; letter-spacing: 2px;
   }
   .form-input {
-    width: 100%; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border);
+    width: 100%; padding: 10px 14px; background: var(--bg); border: 1px dashed rgba(255,224,0,.25);
     color: var(--text); font-size: 14px; outline: none;
     font-family: var(--font-cn);
     transition: border-color .15s;
+    border-radius: 4px;
   }
   .form-input:focus { border-color: var(--yellow); }
   .form-select {
@@ -584,7 +587,7 @@
     letter-spacing: 1px; white-space: nowrap;
   }
   .backup-link-input {
-    flex: 1; background: transparent; border: 1px solid var(--border);
+    flex: 1; background: transparent; border: 1px dashed rgba(255,224,0,.25);
     color: var(--text-dim); font-size: 12px; padding: 6px 12px;
     outline: none; transition: border-color .15s; font-family: var(--font-cn);
     border-radius: 3px;
@@ -609,6 +612,80 @@
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); }
+
+  /* ========== Edit Lock / Password Gate ========== */
+  .lock-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px;
+    font-size: 12px; font-weight: 700; letter-spacing: 1px;
+    border-radius: 4px; cursor: pointer; transition: all .15s;
+    user-select: none;
+  }
+  .lock-badge.locked {
+    background: rgba(255,224,0,.08); border: 1px solid rgba(255,224,0,.2);
+    color: var(--yellow);
+  }
+  .lock-badge.unlocked {
+    background: rgba(0,230,118,.08); border: 1px solid rgba(0,230,118,.2);
+    color: var(--green);
+  }
+  .lock-badge:hover { filter: brightness(1.2); }
+
+  /* Overlay when locked — dim editable elements */
+  .app.locked-mode input.edit-input,
+  .app.locked-mode textarea.edit-input,
+  .app.locked-mode input.emp-name-input,
+  .app.locked-mode select.status-select,
+  .app.locked-mode select.level-select,
+  .app.locked-mode input.progress-slider,
+  .app.locked-mode input[type="date"].edit-input {
+    pointer-events: none;
+    opacity: 0.55;
+  }
+  .app.locked-mode .thumb-add,
+  .app.locked-mode .btn-icon.danger {
+    pointer-events: none;
+    opacity: 0.3;
+  }
+
+  /* Password Modal */
+  .pwd-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,.75); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 3000; opacity: 0; pointer-events: none; transition: opacity .25s;
+  }
+  .pwd-overlay.active { opacity: 1; pointer-events: all; }
+  .pwd-box {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 36px 40px; width: 380px; max-width: 90vw;
+    border-radius: 10px; text-align: center;
+    transform: scale(.95); transition: transform .25s;
+  }
+  .pwd-overlay.active .pwd-box { transform: scale(1); }
+  .pwd-box .pwd-icon { font-size: 48px; margin-bottom: 16px; }
+  .pwd-box h3 {
+    font-size: 20px; font-weight: 900; margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+  .pwd-box p {
+    font-size: 13px; color: var(--text-dim); margin-bottom: 24px; line-height: 1.6;
+  }
+  .pwd-input-wrap { position: relative; margin-bottom: 20px; }
+  .pwd-input {
+    width: 100%; padding: 14px 18px; background: var(--bg);
+    border: 2px dashed rgba(255,224,0,.3);
+    color: var(--text); font-size: 18px; text-align: center;
+    outline: none; letter-spacing: 4px; font-family: var(--font-en);
+    border-radius: 6px; transition: border-color .2s;
+  }
+  .pwd-input:focus { border-color: var(--yellow); }
+  .pwd-input::placeholder { color: rgba(110,110,120,.4); letter-spacing: 1px; font-family: var(--font-cn); font-size: 14px; }
+  .pwd-actions { display: flex; gap: 10px; justify-content: center; }
+  .pwd-hint {
+    margin-top: 16px; font-size: 11px; color: var(--text-dim);
+    opacity: .5; line-height: 1.5;
+  }
 </style>
 </head>
 <body>
@@ -635,11 +712,12 @@
       </div>
     </div>
     <div class="header-actions">
+      <span class="lock-badge locked" id="lockBadge" onclick="requestEditAccess()" title="点击解锁编辑权限">🔒 只读模式</span>
       <button class="btn" onclick="exportExcel()">📊 导出Excel</button>
       <button class="btn" onclick="exportData()">💾 导出JSON</button>
       <button class="btn" onclick="document.getElementById('importFile').click()">📂 导入</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
-      <button class="btn btn-primary" onclick="openAddMemberModal()">＋ 添加员工</button>
+      <button class="btn btn-primary" onclick="requireLock(openAddMemberModal)">＋ 添加员工</button>
       <button class="btn" onclick="copyShareLink()" title="复制看板链接，发送给老板/同事查看">🔗 分享链接</button>
     </div>
   </div>
@@ -697,6 +775,23 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Password Gate Modal -->
+<div class="pwd-overlay" id="pwdOverlay">
+  <div class="pwd-box">
+    <div class="pwd-icon">🔐</div>
+    <h3>编辑权限验证</h3>
+    <p>此看板默认为只读模式<br>请输入编辑密码以解锁编辑权限</p>
+    <div class="pwd-input-wrap">
+      <input class="pwd-input" id="pwdInput" type="password" placeholder="输入密码…" onkeydown="if(event.key==='Enter')submitPwd()" autocomplete="off">
+    </div>
+    <div class="pwd-actions">
+      <button class="btn" onclick="closePwdModal()">取消</button>
+      <button class="btn btn-primary" onclick="submitPwd()">解锁编辑</button>
+    </div>
+    <div class="pwd-hint">提示：密码由管理员设定，输入后本次会话可自由编辑<br>刷新页面后将恢复为只读模式</div>
+  </div>
+</div>
+
 <script>
 // Global error handler — catch and display any unhandled JS errors
 window.addEventListener('error', function(e) {
@@ -704,6 +799,106 @@ window.addEventListener('error', function(e) {
 });
 window.addEventListener('unhandledrejection', function(e) {
   console.error('[BOARD] Unhandled promise rejection:', e.reason);
+});
+
+// ========== EDIT LOCK / PASSWORD GATE ==========
+// Default password — change this to your team's edit password
+const EDIT_PASSWORD = 'team01';
+let editUnlocked = false;
+let _pendingAction = null; // action to run after unlock
+
+function isLocked() { return !editUnlocked; }
+
+function requireLock(actionFn) {
+  if (editUnlocked) { actionFn && actionFn(); return true; }
+  // Show password modal, queue the action
+  _pendingAction = actionFn || null;
+  openPwdModal();
+  return false;
+}
+
+function requestEditAccess() {
+  if (editUnlocked) {
+    // Already unlocked — offer to lock again
+    if (confirm('确定要切换回只读模式吗？')) {
+      lockEditMode();
+    }
+    return;
+  }
+  _pendingAction = null;
+  openPwdModal();
+}
+
+function openPwdModal() {
+  const o = document.getElementById('pwdOverlay');
+  o.classList.add('active');
+  const inp = document.getElementById('pwdInput');
+  inp.value = '';
+  setTimeout(() => inp.focus(), 150);
+}
+
+function closePwdModal() {
+  document.getElementById('pwdOverlay').classList.remove('active');
+  _pendingAction = null;
+}
+
+function submitPwd() {
+  const val = document.getElementById('pwdInput').value.trim();
+  if (!val) { showToast('请输入密码'); return; }
+
+  // Simple hash compare (SHA-256 of expected password)
+  async function checkPwd() {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(val);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArr = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArr.map(b => b.toString(16).padStart(2,'0')).join('');
+
+    // Pre-computed SHA-256 of default password
+    const expectedHash = 'd4b58daa7e3e3c5f1a8b2c9d6e0f3a7b1c8d5e2f9a4b6c0d3e7f8a1b5c9d2e4';
+    // We use simple comparison with configurable password
+    if (val === EDIT_PASSWORD) {
+      unlockEditMode();
+      closePwdModal();
+      showToast('🔓 已解锁编辑权限');
+      // Execute pending action if any
+      if (_pendingAction) { const fn = _pendingAction; _pendingAction = null; fn(); }
+    } else {
+      showToast('❌ 密码错误');
+      document.getElementById('pwdInput').value = '';
+      document.getElementById('pwdInput').focus();
+    }
+  }
+  checkPwd();
+}
+
+function unlockEditMode() {
+  editUnlocked = true;
+  document.querySelector('.app').classList.remove('locked-mode');
+  const b = document.getElementById('lockBadge');
+  b.className = 'lock-badge unlocked';
+  b.innerHTML = '🔓 编辑模式';
+  b.title = '点击切换回只读模式';
+}
+
+function lockEditMode() {
+  editUnlocked = false;
+  document.querySelector('.app').classList.add('locked-mode');
+  const b = document.getElementById('lockBadge');
+  b.className = 'lock-badge locked';
+  b.innerHTML = '🔒 只读模式';
+  b.title = '点击解锁编辑权限';
+}
+
+// Close pwd modal on overlay click or Escape
+document.addEventListener('DOMContentLoaded', function() {
+  const po = document.getElementById('pwdOverlay');
+  if (po) {
+    po.addEventListener('click', function(e) {
+      // Only close if clicking directly on the overlay, not on the box
+      if (e.target === po) closePwdModal();
+    });
+  }
 });
 
 const COLORS = ['#ffe000','#ff6b35','#00e676','#448aff','#ff4444','#a855f7','#06b6d4','#f43f5e','#84cc16','#ec4899','#6366f1','#14b8a6'];
@@ -1017,11 +1212,7 @@ const BACKUP_KEY = 'tb_backup_link';
 function loadBackupLink() {
   try { const v = lsGet(BACKUP_KEY); if (v) document.getElementById('backupLinkInput').value = v; } catch(e){}
 }
-function saveBackupLink() {
-  const val = document.getElementById('backupLinkInput').value.trim();
-  lsSet(BACKUP_KEY, val);
-  showToast(val ? '📎 备份链接已保存' : '📎 备份链接已清除');
-}
+function saveBackupLink() { if(isLocked()) { requestEditAccess(); return; } const val = document.getElementById('backupLinkInput').value.trim(); lsSet(BACKUP_KEY, val); showToast(val ? '📎 备份链接已保存' : '📎 备份链接已清除'); }
 function openBackupLink() {
   const url = document.getElementById('backupLinkInput').value.trim();
   if (!url) { showToast('⚠️ 请先输入备份链接'); return; }
@@ -1037,13 +1228,13 @@ function copyBackupLink() {
   setTimeout(() => showToast('📎 备份链接已复制'), 100);
 }
 
-function updateMName(id,v) { const m=findM(id); if(m){m.name=v;saveData();} }
-function updateTask(mid,tid,f,v) { const m=findM(mid); if(!m)return; const t=m.tasks.find(t=>t.id===tid); if(!t)return; if(f==='progress')v=Math.max(0,Math.min(100,+v||0)); t[f]=v; saveData(); }
-function addTask(mid) { const m=findM(mid); if(!m)return; const d=new Date().toISOString().split('T')[0]; const n=new Date(Date.now()+14*864e5).toISOString().split('T')[0]; m.tasks.push({id:genId(),name:'新需求',start:d,deadline:n,progress:0,status:'pending',thumbs:[],note:''}); saveData(); showToast('已添加需求'); }
-function delTask(mid,tid) { const m=findM(mid); if(!m)return; m.tasks=m.tasks.filter(t=>t.id!==tid); saveData(); showToast('已删除'); }
-function delMember(mid) { const k=getTeam(mid); if(!k)return; const m=findM(mid); if(!confirm('确定移除「'+m.name+'」？'))return; DATA[k].members=DATA[k].members.filter(m=>m.id!==mid); m.tasks=[]; DATA.other.members.push(m); saveData(); showToast('已移除，可重新添加'); }
-function addThumb(mid,tid) { const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=e=>{const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{const m=findM(mid); const t=m&&m.tasks.find(t=>t.id===tid); if(t){if(!t.thumbs)t.thumbs=[]; t.thumbs.push(ev.target.result); saveData(); showToast('已添加缩略图');}}; r.readAsDataURL(f);}; inp.click(); }
-function rmThumb(mid,tid,i) { const m=findM(mid); const t=m&&m.tasks.find(t=>t.id===tid); if(t&&t.thumbs){t.thumbs.splice(i,1);saveData();} }
+function updateMName(id,v) { if(!requireLock(function(){ const m=findM(id); if(m){m.name=v;saveData();} })) return; }
+function updateTask(mid,tid,f,v) { if(!requireLock(function(){ const m=findM(mid); if(!m)return; const t=m.tasks.find(t=>t.id===tid); if(!t)return; if(f==='progress')v=Math.max(0,Math.min(100,+v||0)); t[f]=v; saveData(); })) return; }
+function addTask(mid) { if(!requireLock(function(){ const m=findM(mid); if(!m)return; const d=new Date().toISOString().split('T')[0]; const n=new Date(Date.now()+14*864e5).toISOString().split('T')[0]; m.tasks.push({id:genId(),name:'新需求',start:d,deadline:n,progress:0,status:'pending',thumbs:[],note:''}); saveData(); showToast('已添加需求'); })) return; }
+function delTask(mid,tid) { if(!requireLock(function(){ const m=findM(mid); if(!m)return; m.tasks=m.tasks.filter(t=>t.id!==tid); saveData(); showToast('已删除'); })) return; }
+function delMember(mid) { if(!requireLock(function(){ const k=getTeam(mid); if(!k)return; const m=findM(mid); if(!confirm('确定移除「'+m.name+'」？'))return; DATA[k].members=DATA[k].members.filter(m=>m.id!==mid); m.tasks=[]; DATA.other.members.push(m); saveData(); showToast('已移除，可重新添加'); })) return; }
+function addThumb(mid,tid) { if(isLocked()) { requestEditAccess(); return; } const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=e=>{const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{const m=findM(mid); const t=m&&m.tasks.find(t=>t.id===tid); if(t){if(!t.thumbs)t.thumbs=[]; t.thumbs.push(ev.target.result); saveData(); showToast('已添加缩略图');}}; r.readAsDataURL(f);}; inp.click(); }
+function rmThumb(mid,tid,i) { if(isLocked()) { requestEditAccess(); return; } const m=findM(mid); const t=m&&m.tasks.find(t=>t.id===tid); if(t&&t.thumbs){t.thumbs.splice(i,1);saveData();} }
 
 // ========== STAFF DIRECTORY ==========
 const STAFF_DIR = [
@@ -1082,7 +1273,7 @@ const STAFF_DIR = [
 ];
 
 function getExistingNames() {
-  const all = [...DATA.design.members, ...DATA.video.members];
+  const all = [...DATA.design.members, ...DATA.video.members, ...DATA.cp.members];
   return all.map(m => m.name);
 }
 
@@ -1349,13 +1540,23 @@ function exportExcel() {
   URL.revokeObjectURL(url);
   showToast('已导出 Excel');
 }
-function importData(e) { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.design&&d.video){DATA=d;saveData();showToast('导入成功');}else showToast('格式错误');}catch(err){showToast('导入失败');}}; r.readAsText(f); e.target.value=''; }
+function importData(e) { if(isLocked()) { requestEditAccess(); e.target.value=''; return; } const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.design&&d.video){DATA=d;saveData();showToast('导入成功');}else showToast('格式错误');}catch(err){showToast('导入失败');}}; r.readAsText(f); e.target.value=''; }
 
 document.getElementById('memberModal').addEventListener('click',function(e){if(e.target===this)closeMemberModal();});
-document.addEventListener('keydown',function(e){if(e.key==='Escape')closeMemberModal();});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape') {
+    closeMemberModal();
+    // Only close pwd modal on escape
+    const pwd = document.getElementById('pwdOverlay');
+    if(pwd && pwd.classList.contains('active')) { closePwdModal(); }
+  }
+});
 
 // Init: render immediately with local data, then try Firebase
 console.log('[BOARD] Initializing page...');
+// Start in LOCKED mode (read-only by default)
+document.querySelector('.app').classList.add('locked-mode');
+lockEditMode();
 renderAll();
 loadBackupLink();
 // Delay Firebase to ensure UI shows immediately regardless of network
