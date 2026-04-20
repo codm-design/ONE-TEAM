@@ -1210,7 +1210,17 @@ let DATA = loadData();
 let currentTab = 'all';
 
 function getAllMembers() { return [...DATA.design.members, ...DATA.video.members, ...DATA.cp.members]; }
-function getFiltered() { const m = currentTab === 'design' ? DATA.design.members : currentTab === 'video' ? DATA.video.members : currentTab === 'cp' ? DATA.cp.members : getAllMembers(); return [...m].sort((a,b) => b.tasks.length - a.tasks.length); }
+let sortByTasks = false;
+function getFiltered() {
+  const m = currentTab === 'design' ? DATA.design.members : currentTab === 'video' ? DATA.video.members : currentTab === 'cp' ? DATA.cp.members : getAllMembers();
+  const arr = [...m];
+  if (sortByTasks) return arr.sort((a,b) => b.tasks.length - a.tasks.length);
+  return arr;
+}
+function toggleSort() {
+  sortByTasks = !sortByTasks;
+  renderTable();
+}
 function getCounts(members) {
   const a = (members || getAllMembers()).flatMap(m => m.tasks);
   return { total: a.length, ongoing: a.filter(t=>t.status==='ongoing').length, done: a.filter(t=>t.status==='done').length, delayed: a.filter(t=>t.status==='delayed').length, pending: a.filter(t=>t.status==='pending').length };
@@ -1415,7 +1425,7 @@ function renderTabs() {
 function renderTable() {
   try {
   const members = getFiltered();
-  let html = `<div class="panel"><div class="panel-header"><h2>需求明细</h2><span class="count">${members.reduce((s,m)=>s+m.tasks.length,0)}</span></div>`;
+  let html = `<div class="panel"><div class="panel-header" style="display:flex;align-items:center;gap:12px;"><h2>需求明细</h2><button class="btn btn-sm" onclick="toggleSort()" title="按任务数量排序（默认为原始添加顺序）">${sortByTasks ? '📊 按任务数 ↓' : '📊 按任务数排序'}</button><span class="count">${members.reduce((s,m)=>s+m.tasks.length,0)}</span></div>`;
 
   if (!members.length) html += '<div style="padding:40px;text-align:center;color:var(--text-dim);font-size:13px">暂无数据</div>';
 
