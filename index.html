@@ -1123,8 +1123,19 @@ function initFirebase() {
               g.members.forEach(m => { if (!m.tasks) m.tasks = []; if (!m.color) m.color = '#ffe000'; });
             });
             DATA = cloud;
-            lsSet('tb_data', JSON.stringify(DATA));
-            renderAll();
+              lsSet('tb_data', JSON.stringify(DATA));
+              // Re-restore nextId after initial cloud sync
+              (function restoreNextIdFromCloud() {
+                let maxN = 99;
+                function extractNum(id) { if (!id) return 0; const m = String(id).match(/id_(\d+)/); return m ? parseInt(m[1], 10) : 0; }
+                getAllMembers().forEach(m => {
+                  maxN = Math.max(maxN, extractNum(m.id));
+                  (m.tasks || []).forEach(t => { maxN = Math.max(maxN, extractNum(t.id)); });
+                });
+                nextId = Math.max(nextId, maxN + 1);
+                console.log('[BOARD] nextId restored from cloud:', nextId);
+              })();
+              renderAll();
             showToast('📡 已同步云端数据');
           } catch(e) {
             console.error('[BOARD] Cloud data processing error:', e);
@@ -1152,6 +1163,16 @@ function initFirebase() {
               });
               DATA = val;
               lsSet('tb_data', JSON.stringify(DATA));
+              // Re-restore nextId after Firebase sync
+              (function restoreNextIdFromSync() {
+                let maxN = 99;
+                function extractNum(id) { if (!id) return 0; const m = String(id).match(/id_(\d+)/); return m ? parseInt(m[1], 10) : 0; }
+                getAllMembers().forEach(m => {
+                  maxN = Math.max(maxN, extractNum(m.id));
+                  (m.tasks || []).forEach(t => { maxN = Math.max(maxN, extractNum(t.id)); });
+                });
+                nextId = Math.max(nextId, maxN + 1);
+              })();
               renderAll();
             } catch(e) { console.error('[BOARD] Realtime sync error:', e); }
           }
@@ -1166,6 +1187,26 @@ function initFirebase() {
 }
 
 let DATA = loadData();
+
+// Restore nextId from existing data to avoid ID collisions
+(function restoreNextId() {
+  let maxN = 99;
+  function extractNum(id) {
+    if (!id) return 0;
+    const m = String(id).match(/id_(\d+)/);
+    return m ? parseInt(m[1], 10) : 0;
+  }
+  getAllMembers().forEach(m => {
+    maxN = Math.max(maxN, extractNum(m.id));
+    (m.tasks || []).forEach(t => {
+      maxN = Math.max(maxN, extractNum(t.id));
+      (t.thumbs || []).forEach((_, i) => { /* thumbs don't have ids */ });
+    });
+  });
+  nextId = Math.max(nextId, maxN + 1);
+  console.log('[BOARD] nextId restored to', nextId);
+})();
+
 let currentTab = 'all';
 
 function getAllMembers() { return [...DATA.design.members, ...DATA.video.members, ...DATA.cp.members]; }
