@@ -25,8 +25,8 @@
     --yellow-mid: rgba(255,224,0,.15);
     --green: #00e676;
     --green-dim: rgba(0,230,118,.1);
-    --red: #ff4444;
-    --red-dim: rgba(255,68,68,.1);
+    --red: #ff0000;
+    --red-dim: rgba(255,0,0,.12);
     --blue: #448aff;
     --blue-dim: rgba(68,138,255,.1);
     --white-dim: rgba(255,255,255,.04);
@@ -243,7 +243,31 @@
   .tab-btn.active .badge { opacity: 1; }
 
   /* ========== Main Grid ========== */
-  .main-grid { display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start; }
+  .main-grid { display: grid; grid-template-columns: 1fr 420px; gap: 24px; align-items: start; }
+
+  /* ========== Sidebar Two-Column Layout ========== */
+  .sidebar-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+  .sidebar-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .sidebar-col .chart-panel { padding: 14px; }
+  .sidebar-col h3 { font-size: 12px !important; margin-bottom: 10px !important; }
+  .sidebar-col .bar-label { font-size: 12px; width: 44px; }
+  .sidebar-col .bar-fill { font-size: 11px; padding-left: 6px; height: 20px; }
+  .sidebar-col .bar-track { height: 20px; }
+  .sidebar-col .donut-svg { width: 100px; height: 100px; flex-shrink: 0; }
+  .sidebar-col .legend-item { font-size: 11px; gap: 5px; }
+  .sidebar-col .legend-value { font-size: 13px; }
+  .sidebar-col .rank-item { padding: 5px 8px; }
+  .sidebar-col .rank-name { font-size: 13px; }
+  .sidebar-col .rank-count { font-size: 15px; }
 
   /* ========== Panel ========== */
   .panel {
@@ -548,10 +572,38 @@
   .corner-deco.bl { bottom: 12px; left: 12px; width: 24px; height: 24px; border-bottom: 2px solid var(--yellow); border-left: 2px solid var(--yellow); }
   .corner-deco.br { bottom: 12px; right: 12px; width: 24px; height: 24px; border-bottom: 2px solid var(--yellow); border-right: 2px solid var(--yellow); }
 
+  /* ========== Backup Link ========== */
+  .backup-link-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    background: rgba(255,224,0,.04); border: 1px solid rgba(255,224,0,.15);
+    border-radius: 4px; margin-bottom: 20px;
+  }
+  .backup-link-label {
+    font-size: 12px; font-weight: 700; color: var(--yellow);
+    letter-spacing: 1px; white-space: nowrap;
+  }
+  .backup-link-input {
+    flex: 1; background: transparent; border: 1px solid var(--border);
+    color: var(--text-dim); font-size: 12px; padding: 6px 12px;
+    outline: none; transition: border-color .15s; font-family: var(--font-cn);
+    border-radius: 3px;
+  }
+  .backup-link-input:focus { border-color: var(--yellow); color: var(--text); }
+  .backup-link-input::placeholder { color: rgba(110,110,120,.5); }
+  .backup-link-btn {
+    font-size: 11px; padding: 5px 14px; white-space: nowrap;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-dim); cursor: pointer; border-radius: 3px;
+    transition: all .15s; font-family: var(--font-cn); font-weight: 600;
+  }
+  .backup-link-btn:hover { border-color: var(--yellow); color: var(--yellow); }
+
   /* ========== Responsive ========== */
   @media (max-width: 1100px) {
     .main-grid { grid-template-columns: 1fr; }
     .stats-bar { grid-template-columns: repeat(2,1fr); }
+    .sidebar-split { grid-template-columns: 1fr; }
   }
 
   ::-webkit-scrollbar { width: 5px; }
@@ -588,11 +640,21 @@
       <button class="btn" onclick="document.getElementById('importFile').click()">📂 导入</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
       <button class="btn btn-primary" onclick="openAddMemberModal()">＋ 添加员工</button>
+      <button class="btn" onclick="copyShareLink()" title="复制看板链接，发送给老板/同事查看">🔗 分享链接</button>
     </div>
   </div>
 
   <!-- Stats -->
   <div class="stats-bar" id="statsBar"></div>
+
+  <!-- Backup Link Bar -->
+  <div class="backup-link-bar">
+    <span class="backup-link-label">📎 文件备份链接</span>
+    <input class="backup-link-input" id="backupLinkInput" placeholder="粘贴文件备份地址（网盘/飞书文档/GitHub 等），回车保存..." onkeydown="if(event.key==='Enter')saveBackupLink()">
+    <button class="backup-link-btn" onclick="saveBackupLink()">保存</button>
+    <button class="backup-link-btn" onclick="openBackupLink()" title="打开链接">打开</button>
+    <button class="backup-link-btn" onclick="copyBackupLink()" title="复制链接">复制</button>
+  </div>
 
   <!-- Tabs -->
   <div class="tab-bar" id="tabBar"></div>
@@ -927,6 +989,54 @@ function findM(id) { return getAllMembers().find(m=>m.id===id); }
 
 function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
 
+function copyShareLink() {
+  const url = window.location.href;
+  // Try modern clipboard API first
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => {
+      showToast('✅ 链接已复制！可发送给老板/同事查看');
+    }).catch(() => fallbackCopy(url));
+  } else {
+    fallbackCopy(url);
+  }
+}
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position='fixed';ta.style.left='-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); showToast('✅ 链接已复制！可发送给老板/同事查看'); }
+  catch(e) { alert('请手动复制链接：\n' + text); }
+  document.body.removeChild(ta);
+}
+
+// ========== Backup Link ==========
+const BACKUP_KEY = 'tb_backup_link';
+
+function loadBackupLink() {
+  try { const v = lsGet(BACKUP_KEY); if (v) document.getElementById('backupLinkInput').value = v; } catch(e){}
+}
+function saveBackupLink() {
+  const val = document.getElementById('backupLinkInput').value.trim();
+  lsSet(BACKUP_KEY, val);
+  showToast(val ? '📎 备份链接已保存' : '📎 备份链接已清除');
+}
+function openBackupLink() {
+  const url = document.getElementById('backupLinkInput').value.trim();
+  if (!url) { showToast('⚠️ 请先输入备份链接'); return; }
+  // Auto-add protocol if missing
+  let finalUrl = url;
+  if (!/^https?:\/\//i.test(finalUrl)) finalUrl = 'https://' + finalUrl;
+  window.open(finalUrl, '_blank');
+}
+function copyBackupLink() {
+  const url = document.getElementById('backupLinkInput').value.trim();
+  if (!url) { showToast('⚠️ 没有可复制的链接'); return; }
+  fallbackCopy(url);
+  setTimeout(() => showToast('📎 备份链接已复制'), 100);
+}
+
 function updateMName(id,v) { const m=findM(id); if(m){m.name=v;saveData();} }
 function updateTask(mid,tid,f,v) { const m=findM(mid); if(!m)return; const t=m.tasks.find(t=>t.id===tid); if(!t)return; if(f==='progress')v=Math.max(0,Math.min(100,+v||0)); t[f]=v; saveData(); }
 function addTask(mid) { const m=findM(mid); if(!m)return; const d=new Date().toISOString().split('T')[0]; const n=new Date(Date.now()+14*864e5).toISOString().split('T')[0]; m.tasks.push({id:genId(),name:'新需求',start:d,deadline:n,progress:0,status:'pending',thumbs:[],note:''}); saveData(); showToast('已添加需求'); }
@@ -1135,29 +1245,59 @@ function renderTable() {
 
 function renderSidebar() {
   try {
-  const members = getFiltered();
-  if (!members.length) { document.getElementById('sidebar').innerHTML=''; return; }
-  const sorted = [...members].sort((a,b)=>b.tasks.length-a.tasks.length);
-  const mx = Math.max(...members.map(m=>m.tasks.length),1);
-  const c = getCounts(members);
 
-  const bars = sorted.map(m=>`<div class="bar-row"><span class="bar-label">${m.name}</span><div class="bar-track"><div class="bar-fill" style="width:${(m.tasks.length/mx*100)}%;background:${m.color}">${m.tasks.length}</div></div></div>`).join('');
+  // Split into two groups: 员工 (design+video) and CP
+  const empMembers = [...DATA.design.members, ...DATA.video.members].filter(m => m);
+  const cpMembers = DATA.cp.members || [];
 
-  const dd = [{l:'进行中',v:c.ongoing,c:'#448aff'},{l:'已完成',v:c.done,c:'#00e676'},{l:'待启动',v:c.pending,c:'#ffe000'},{l:'已延期',v:c.delayed,c:'#ff4444'}];
-  const tot = dd.reduce((s,d)=>s+d.v,0)||1;
-  let dp='',ca=-90;
-  dd.forEach(d=>{if(!d.v)return;const a=(d.v/tot)*360;const sr=ca*Math.PI/180;const er=(ca+a)*Math.PI/180;const r=55,cx=70,cy=70;dp+=`<path d="M${cx},${cy} L${cx+r*Math.cos(sr)},${cy+r*Math.sin(sr)} A${r},${r} 0 ${a>180?1:0},1 ${cx+r*Math.cos(er)},${cy+r*Math.sin(er)} Z" fill="${d.c}" opacity="0.8"/>`;ca+=a;});
-  dp+=`<circle cx="70" cy="70" r="33" fill="var(--surface)"/>`;
-  dp+=`<text x="70" y="66" text-anchor="middle" fill="var(--yellow)" font-family="Bebas Neue,sans-serif" font-size="22">${dd.reduce((s,d)=>s+d.v,0)}</text>`;
-  dp+=`<text x="70" y="82" text-anchor="middle" fill="var(--text-dim)" font-size="10" letter-spacing="1">TOTAL</text>`;
-  const leg = dd.map(d=>`<div class="legend-item"><div class="legend-dot" style="background:${d.c}"></div><span class="legend-label">${d.l}</span><span class="legend-value">${d.v}</span></div>`).join('');
-  const ranks = sorted.slice(0,5).map((m,i)=>{const cls=i===0?'gold':i===1?'silver':i===2?'bronze':'normal';return`<div class="rank-item"><div class="rank-num ${cls}">${i+1}</div><span class="rank-name">${m.name}</span><span class="rank-count">${m.tasks.length}</span></div>`;}).join('');
+  // Helper: build one column for a member list
+  function buildColumn(members) {
+    if (!members.length) return '<div style="color:var(--text-dim);font-size:12px;text-align:center;padding:20px;">暂无成员</div>';
 
-  document.getElementById('sidebar').innerHTML = `
-    <div class="chart-panel"><h3>个人需求量</h3><div class="bar-chart">${bars}</div></div>
-    <div class="chart-panel"><h3>状态分布</h3><div class="donut-area"><svg class="donut-svg" width="140" height="140" viewBox="0 0 140 140">${dp}</svg><div class="donut-legend">${leg}</div></div></div>
-    <div class="chart-panel"><h3>工作量排行</h3><div class="rank-list">${ranks}</div></div>
-  `;
+    const sorted = [...members].sort((a,b) => b.tasks.length - a.tasks.length);
+    const mx = Math.max(...members.map(m => m.tasks.length), 1);
+
+    // Bar chart (compact)
+    const bars = sorted.slice(0, 6).map(m => `<div class="bar-row"><span class="bar-label">${m.name}</span><div class="bar-track"><div class="bar-fill" style="width:${(m.tasks.length/mx*100)}%;background:${m.color}">${m.tasks.length}</div></div></div>`).join('');
+
+    // Status donut
+    const allTasks = members.flatMap(m => m.tasks || []);
+    const c = { total: allTasks.length, ongoing: allTasks.filter(t => t.status === 'ongoing').length, done: allTasks.filter(t => t.status === 'done').length, pending: allTasks.filter(t => t.status === 'pending').length, delayed: allTasks.filter(t => t.status === 'delayed').length };
+    const dd = [{l:'进行中',v:c.ongoing,c:'#448aff'},{l:'已完成',v:c.done,c:'#00e676'},{l:'待启动',v:c.pending,c:'#ffe000'},{l:'已延期',v:c.delayed,c:'#ff4444'}];
+    const tot = dd.reduce((s,d) => s+d.v, 0) || 1;
+    let dp='',ca=-90;
+    dd.forEach(d => { if(!d.v)return; const a=(d.v/tot)*360; const sr=ca*Math.PI/180; const er=(ca+a)*Math.PI/180; const r=45,cx=56,cy=56; dp+=`<path d="M${cx},${cy} L${cx+r*Math.cos(sr)},${cy+r*Math.sin(sr)} A${r},${r} 0 ${a>180?1:0},1 ${cx+r*Math.cos(er)},${cy+r*Math.sin(er)} Z" fill="${d.c}" opacity="0.8"/>`; ca+=a; });
+    dp+=`<circle cx="56" cy="56" r="26" fill="var(--surface)"/>`;
+    dp+=`<text x="56" y="53" text-anchor="middle" fill="var(--yellow)" font-family="Bebas Neue,sans-serif" font-size="18">${dd.reduce((s,d)=>s+d.v,0)}</text>`;
+    dp+=`<text x="56" y="66" text-anchor="middle" fill="var(--text-dim)" font-size="8" letter-spacing="1">TOTAL</text>`;
+    const leg = dd.map(d => `<div class="legend-item"><div class="legend-dot" style="background:${d.c}"></div><span class="legend-label">${d.l}</span><span class="legend-value">${d.v}</span></div>`).join('');
+
+    // Rank
+    const ranks = sorted.slice(0, 4).map((m,i) => { const cls=i===0?'gold':i===1?'silver':i===2?'bronze':'normal'; return `<div class="rank-item"><div class="rank-num ${cls}">${i+1}</div><span class="rank-name">${m.name}</span><span class="rank-count">${m.tasks.length}</span></div>`; }).join('');
+
+    return `
+      <div class="chart-panel"><h3>个人需求量</h3><div class="bar-chart">${bars}</div></div>
+      <div class="chart-panel"><h3>状态分布</h3><div class="donut-area"><svg class="donut-svg" width="112" height="112" viewBox="0 0 112 112">${dp}</svg><div class="donut-legend">${leg}</div></div></div>
+      <div class="chart-panel"><h3>工作量排行</h3><div class="rank-list">${ranks}</div></div>
+    `;
+  }
+
+  document.getElementById('sidebar').innerHTML =
+    `<div class="sidebar-split">
+       <div class="sidebar-col">
+         <div style="border-left:3px solid var(--yellow);padding-left:10px;font-size:13px;font-weight:900;letter-spacing:2px;color:var(--yellow);margin-bottom:4px;display:flex;align-items:center;gap:6px;">
+           👥 员工组 <span style="font-family:'Bebas Neue',sans-serif;color:var(--text-dim);font-size:11px;margin-left:auto;">${empMembers.length}人</span>
+         </div>
+         ${buildColumn(empMembers)}
+       </div>
+       <div class="sidebar-col">
+         <div style="border-left:3px solid #00e676;padding-left:10px;font-size:13px;font-weight:900;letter-spacing:2px;color:#00e676;margin-bottom:4px;display:flex;align-items:center;gap:6px;">
+           🟢 CP 组 <span style="font-family:'Bebas Neue',sans-serif;color:var(--text-dim);font-size:11px;margin-left:auto;">${cpMembers.length}人</span>
+         </div>
+         ${buildColumn(cpMembers)}
+       </div>
+     </div>`;
+
   } catch(e) { console.error('[BOARD] renderSidebar error:', e); document.getElementById('sidebar').innerHTML=''; }
 }
 
@@ -1217,6 +1357,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeMemberM
 // Init: render immediately with local data, then try Firebase
 console.log('[BOARD] Initializing page...');
 renderAll();
+loadBackupLink();
 // Delay Firebase to ensure UI shows immediately regardless of network
 setTimeout(function() {
   console.log('[BOARD] Starting Firebase initialization...');
