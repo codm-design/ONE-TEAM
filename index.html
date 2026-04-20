@@ -1487,7 +1487,11 @@ function renderTabs() {
 function renderTable() {
   try {
   const members = getFiltered();
-  let html = `<div class="panel"><div class="panel-header" style="display:flex;align-items:center;gap:12px;"><h2>需求明细</h2><button class="btn btn-sm" onclick="toggleSort()" title="按任务数量排序（默认为原始添加顺序）">${sortByTasks ? '📊 按任务数 ↓' : '📊 按任务数排序'}</button><span class="count">${members.reduce((s,m)=>s+m.tasks.length,0)}</span></div>`;
+  const sortBtnStyle = sortByTasks
+    ? 'style="background:var(--yellow);color:#000;border-color:var(--yellow);font-weight:900;"'
+    : '';
+  const sortBtnText = sortByTasks ? '📊 按任务数 ↓（点击关闭）' : '📊 原始顺序（点击排序）';
+  let html = `<div class="panel"><div class="panel-header" style="display:flex;align-items:center;gap:12px;"><h2>需求明细</h2><button class="btn btn-sm" onclick="toggleSort()" ${sortBtnStyle} title="切换成员排列方式">${sortBtnText}</button><span class="count">${members.reduce((s,m)=>s+m.tasks.length,0)}</span></div>`;
 
   if (!members.length) html += '<div style="padding:40px;text-align:center;color:var(--text-dim);font-size:13px">暂无数据</div>';
 
