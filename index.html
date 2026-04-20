@@ -7,6 +7,9 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
 
+  /* Font fallback — if Google Fonts fails to load */
+  body { font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
   :root {
@@ -632,6 +635,14 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// Global error handler — catch and display any unhandled JS errors
+window.addEventListener('error', function(e) {
+  console.error('[BOARD] Global error:', e.message, 'at', e.filename, e.lineno);
+});
+window.addEventListener('unhandledrejection', function(e) {
+  console.error('[BOARD] Unhandled promise rejection:', e.reason);
+});
+
 const COLORS = ['#ffe000','#ff6b35','#00e676','#448aff','#ff4444','#a855f7','#06b6d4','#f43f5e','#84cc16','#ec4899','#6366f1','#14b8a6'];
 let nextId = 100;
 function genId() { return 'id_' + (nextId++); }
@@ -751,22 +762,43 @@ let _saving = false;
 let _fbReady = false;
 let _dbRef = null;
 
+// In-memory fallback when localStorage is unavailable (file:// protocol)
+let _memCache = null;
+
+function lsGet(key) {
+  try { return localStorage.getItem(key); } catch(e) { return _memCache ? JSON.stringify(_memCache) : null; }
+}
+function lsSet(key, val) {
+  try { localStorage.setItem(key, val); } catch(e) { try { _memCache = JSON.parse(val); } catch(e2) {} }
+}
+function lsDel(key) {
+  try { localStorage.removeItem(key); } catch(e) { _memCache = null; }
+}
+
 function loadData() {
   try {
-    const s = localStorage.getItem('tb_data');
+    const s = lsGet('tb_data');
     if (s) {
       const d = JSON.parse(s);
-      if (d.design && d.video && d.design.members.length > 0) {
+      // Validate data structure strictly
+      if (d && typeof d === 'object' && d.design && d.video &&
+        Array.isArray(d.design.members) && Array.isArray(d.video.members) &&
+        (d.design.members.length + d.video.members.length) > 0) {
         if (!d.other) d.other = { name: '其他', members: [] };
+        console.log('[BOARD] Loaded data from storage, design:', d.design.members.length, 'video:', d.video.members.length);
         return d;
       }
+      console.warn('[BOARD] Stored data invalid, falling back to default');
     }
-  } catch(e) {}
+  } catch(e) {
+    console.error('[BOARD] loadData error:', e);
+  }
+  lsDel('tb_data');
   return defaultData();
 }
 
 function saveData() {
-  localStorage.setItem('tb_data', JSON.stringify(DATA));
+  lsSet('tb_data', JSON.stringify(DATA));
   if (_fbReady && _dbRef) {
     _saving = true;
     _dbRef.set(DATA).then(() => { _saving = false; }).catch(err => { _saving = false; });
@@ -802,45 +834,65 @@ function initFirebase() {
       _dbRef = firebase.database().ref('teamboard');
       _fbReady = true;
 
-      // Helper: count total tasks across all visible groups
-      function countTasks(d) {
+      // Count members in design+video
+      function countMembers(d) {
         let n = 0;
-        if (d.design) d.design.members.forEach(m => n += (m.tasks||[]).length);
-        if (d.video) d.video.members.forEach(m => n += (m.tasks||[]).length);
+        if (d.design) n += d.design.members.length;
+        if (d.video) n += d.video.members.length;
         return n;
       }
 
-      // Sync from cloud
+      // Initial sync
       _dbRef.once('value').then(snap => {
         const cloud = snap.val();
-        if (cloud && cloud.design && cloud.video) {
-          if (!cloud.other) cloud.other = { name: '其他', members: [] };
-          // Only use cloud data if it has real content (members with tasks)
-          // or if local data is still default (no tasks)
-          const cloudTasks = countTasks(cloud);
-          const localTasks = countTasks(DATA);
-          if (cloudTasks > 0 || localTasks === 0) {
+        console.log('[BOARD] Firebase initial sync, cloud data:', cloud ? 'exists' : 'null');
+        const cloudHasMembers = cloud && typeof cloud === 'object' && cloud.design && cloud.video &&
+          Array.isArray(cloud.design.members) && Array.isArray(cloud.video.members) &&
+          countMembers(cloud) > 0;
+
+        if (cloudHasMembers) {
+          // Cloud has real data — validate and use it
+          try {
+            if (!cloud.other) cloud.other = { name: '其他', members: [] };
+            // Extra safety: ensure all members have required fields
+            [cloud.design, cloud.video].forEach(g => {
+              g.members.forEach(m => { if (!m.tasks) m.tasks = []; if (!m.color) m.color = '#ffe000'; });
+            });
             DATA = cloud;
-            localStorage.setItem('tb_data', JSON.stringify(DATA));
+            lsSet('tb_data', JSON.stringify(DATA));
             renderAll();
-            showToast('📡 已从云端同步');
+            showToast('📡 已同步云端数据');
+          } catch(e) {
+            console.error('[BOARD] Cloud data processing error:', e);
+            showToast('⚠️ 云端数据异常，使用本地数据');
           }
         } else {
-          // Cloud is empty, push our local data
-          _dbRef.set(DATA);
+          // Cloud is empty / corrupted — push local default data up
+          console.log('[BOARD] Cloud empty/pushing local data');
+          _dbRef.set(DATA).catch(err => console.warn('[BOARD] Push to cloud failed:', err));
         }
-      });
 
-      // Real-time listener for subsequent changes
-      _dbRef.on('value', snap => {
-        if (_saving) return;
-        const val = snap.val();
-        if (val && val.design && val.video) {
-          if (!val.other) val.other = { name: '其他', members: [] };
-          DATA = val;
-          localStorage.setItem('tb_data', JSON.stringify(DATA));
-          renderAll();
-        }
+        // Start listening for real-time changes (only after initial sync)
+        _dbRef.on('value', snap => {
+          if (_saving) return;
+          const val = snap.val();
+          const hasMembers = val && typeof val === 'object' && val.design && val.video &&
+            Array.isArray(val.design.members) && Array.isArray(val.video.members) &&
+            countMembers(val) > 0;
+          if (hasMembers) {
+            try {
+              if (!val.other) val.other = { name: '其他', members: [] };
+              [val.design, val.video].forEach(g => {
+                g.members.forEach(m => { if (!m.tasks) m.tasks = []; });
+              });
+              DATA = val;
+              lsSet('tb_data', JSON.stringify(DATA));
+              renderAll();
+            } catch(e) { console.error('[BOARD] Realtime sync error:', e); }
+          }
+        });
+      }).catch(err => {
+        console.warn('[BOARD] Firebase once() failed:', err);
       });
     })
     .catch(err => {
@@ -972,31 +1024,44 @@ function saveMember() {
 
 // ========== RENDER ==========
 function renderAll() {
-  renderStats(); renderTabs(); renderTable(); renderSidebar();
-  document.getElementById('updateTime').textContent = new Date().toLocaleString('zh-CN');
+  try {
+    console.log('[BOARD] renderAll called, design members:', DATA.design.members.length, 'video members:', DATA.video.members.length);
+    renderStats(); renderTabs(); renderTable(); renderSidebar();
+    document.getElementById('updateTime').textContent = new Date().toLocaleString('zh-CN');
+  } catch(e) {
+    console.error('[BOARD] renderAll error:', e);
+    // Show error on page so user can see what's wrong
+    const statsEl = document.getElementById('statsBar');
+    if (statsEl) statsEl.innerHTML = '<div style="padding:20px;color:#ff4444;font-size:14px;">⚠️ 渲染错误: ' + e.message + '</div>';
+  }
 }
 
 function renderStats() {
-  const c = getCounts();
-  document.getElementById('statsBar').innerHTML = `
-    <div class="stat-card y"><div class="stat-top"><span class="stat-label">总需求</span><span class="stat-icon">📋</span></div><div class="stat-value">${c.total}</div></div>
-    <div class="stat-card b"><div class="stat-top"><span class="stat-label">进行中</span><span class="stat-icon">⚡</span></div><div class="stat-value">${c.ongoing}</div></div>
-    <div class="stat-card g"><div class="stat-top"><span class="stat-label">已完成</span><span class="stat-icon">✓</span></div><div class="stat-value">${c.done}</div></div>
-    <div class="stat-card r"><div class="stat-top"><span class="stat-label">延期/待启</span><span class="stat-icon">⏰</span></div><div class="stat-value">${c.delayed+c.pending}</div></div>
-  `;
+  try {
+    const c = getCounts();
+    document.getElementById('statsBar').innerHTML = `
+      <div class="stat-card y"><div class="stat-top"><span class="stat-label">总需求</span><span class="stat-icon">📋</span></div><div class="stat-value">${c.total}</div></div>
+      <div class="stat-card b"><div class="stat-top"><span class="stat-label">进行中</span><span class="stat-icon">⚡</span></div><div class="stat-value">${c.ongoing}</div></div>
+      <div class="stat-card g"><div class="stat-top"><span class="stat-label">已完成</span><span class="stat-icon">✓</span></div><div class="stat-value">${c.done}</div></div>
+      <div class="stat-card r"><div class="stat-top"><span class="stat-label">延期/待启</span><span class="stat-icon">⏰</span></div><div class="stat-value">${c.delayed+c.pending}</div></div>
+    `;
+  } catch(e) { console.error('[BOARD] renderStats error:', e); }
 }
 
 function renderTabs() {
-  const dC=DATA.design.members.reduce((s,m)=>s+m.tasks.length,0);
-  const vC=DATA.video.members.reduce((s,m)=>s+m.tasks.length,0);
-  document.getElementById('tabBar').innerHTML = `
-    <button class="tab-btn ${currentTab==='all'?'active':''}" onclick="switchTab('all')">ALL <span class="badge">${dC+vC}</span></button>
-    <button class="tab-btn ${currentTab==='design'?'active':''}" onclick="switchTab('design')">DESIGN <span class="badge">${dC}</span></button>
-    <button class="tab-btn ${currentTab==='video'?'active':''}" onclick="switchTab('video')">VIDEO <span class="badge">${vC}</span></button>
-  `;
+  try {
+    const dC=DATA.design.members.reduce((s,m)=>s+m.tasks.length,0);
+    const vC=DATA.video.members.reduce((s,m)=>s+m.tasks.length,0);
+    document.getElementById('tabBar').innerHTML = `
+      <button class="tab-btn ${currentTab==='all'?'active':''}" onclick="switchTab('all')">ALL <span class="badge">${dC+vC}</span></button>
+      <button class="tab-btn ${currentTab==='design'?'active':''}" onclick="switchTab('design')">DESIGN <span class="badge">${dC}</span></button>
+      <button class="tab-btn ${currentTab==='video'?'active':''}" onclick="switchTab('video')">VIDEO <span class="badge">${vC}</span></button>
+    `;
+  } catch(e) { console.error('[BOARD] renderTabs error:', e); }
 }
 
 function renderTable() {
+  try {
   const members = getFiltered();
   let html = `<div class="panel"><div class="panel-header"><h2>需求明细</h2><span class="count">${members.reduce((s,m)=>s+m.tasks.length,0)}</span></div>`;
 
@@ -1055,9 +1120,11 @@ function renderTable() {
   });
   html += '</div>';
   document.getElementById('tablePanel').innerHTML = html;
+  } catch(e) { console.error('[BOARD] renderTable error:', e); document.getElementById('tablePanel').innerHTML='<div style="padding:20px;color:#ff4444;">表格渲染错误: '+e.message+'</div>'; }
 }
 
 function renderSidebar() {
+  try {
   const members = getFiltered();
   if (!members.length) { document.getElementById('sidebar').innerHTML=''; return; }
   const sorted = [...members].sort((a,b)=>b.tasks.length-a.tasks.length);
@@ -1081,6 +1148,7 @@ function renderSidebar() {
     <div class="chart-panel"><h3>状态分布</h3><div class="donut-area"><svg class="donut-svg" width="140" height="140" viewBox="0 0 140 140">${dp}</svg><div class="donut-legend">${leg}</div></div></div>
     <div class="chart-panel"><h3>工作量排行</h3><div class="rank-list">${ranks}</div></div>
   `;
+  } catch(e) { console.error('[BOARD] renderSidebar error:', e); document.getElementById('sidebar').innerHTML=''; }
 }
 
 function switchTab(t) { currentTab=t; renderTabs(); renderTable(); renderSidebar(); }
@@ -1136,9 +1204,14 @@ function importData(e) { const f=e.target.files[0]; if(!f)return; const r=new Fi
 document.getElementById('memberModal').addEventListener('click',function(e){if(e.target===this)closeMemberModal();});
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeMemberModal();});
 
-// Init: render immediately, then try Firebase
+// Init: render immediately with local data, then try Firebase
+console.log('[BOARD] Initializing page...');
 renderAll();
-setTimeout(initFirebase, 500);
+// Delay Firebase to ensure UI shows immediately regardless of network
+setTimeout(function() {
+  console.log('[BOARD] Starting Firebase initialization...');
+  initFirebase();
+}, 800);
 </script>
 </body>
 </html>
