@@ -647,6 +647,11 @@
     pointer-events: none;
     opacity: 0.3;
   }
+  /* Dim add-task button in locked mode */
+  .app.locked-mode .emp-actions .btn-sm[onclick*="addTask"] {
+    opacity: 0.45;
+    border-color: rgba(255,224,0,.15);
+  }
 
   /* Password Modal */
   .pwd-overlay {
@@ -1161,6 +1166,10 @@ function initFirebase() {
               [val.design, val.video, val.cp].forEach(g => {
                 g.members.forEach(m => { if (!m.tasks) m.tasks = []; });
               });
+              // Skip re-render if data hasn't actually changed (avoid unnecessary refreshes)
+              const oldJson = JSON.stringify(DATA);
+              const newJson = JSON.stringify(val);
+              if (oldJson === newJson) return;
               DATA = val;
               lsSet('tb_data', JSON.stringify(DATA));
               // Re-restore nextId after Firebase sync
