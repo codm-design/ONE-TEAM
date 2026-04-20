@@ -718,6 +718,7 @@
     </div>
     <div class="header-actions">
       <span class="lock-badge locked" id="lockBadge" onclick="requestEditAccess()" title="点击解锁编辑权限">🔒 只读模式</span>
+      <button class="btn" onclick="refreshFromCloud()" title="从云端拉取最新数据（多人协作时使用）">🔄 刷新</button>
       <button class="btn" onclick="exportExcel()">📊 导出Excel</button>
       <button class="btn" onclick="exportData()">💾 导出JSON</button>
       <button class="btn" onclick="document.getElementById('importFile').click()">📂 导入</button>
@@ -1189,42 +1190,8 @@ function initFirebase() {
           _dbRef.set(DATA).catch(err => console.warn('[BOARD] Push to cloud failed:', err));
         }
 
-        // Start listening for real-time changes (only after initial sync)
-        _dbRef.on('value', snap => {
-          if (_saving) return;
-          const val = snap.val();
-          const hasMembers = val && typeof val === 'object' && val.design && val.video &&
-            Array.isArray(val.design.members) && Array.isArray(val.video.members) &&
-            countMembers(val) > 0;
-          if (hasMembers) {
-            try {
-              if (!val.other) val.other = { name: '其他', members: [] };
-              if (!val.cp) val.cp = { name: 'CP组', members: [] };
-              [val.design, val.video, val.cp].forEach(g => {
-                g.members.forEach(m => { if (!m.tasks) m.tasks = []; });
-              });
-              // Skip re-render if data hasn't actually changed (avoid unnecessary refreshes)
-              const oldJson = JSON.stringify(DATA);
-              const newJson = JSON.stringify(val);
-              if (oldJson === newJson) return;
-              DATA = val;
-              // Fix duplicate IDs if any
-              fixDuplicateIds(DATA);
-              lsSet('tb_data', JSON.stringify(DATA));
-              // Re-restore nextId after Firebase sync
-              (function restoreNextIdFromSync() {
-                let maxN = 99;
-                function extractNum(id) { if (!id) return 0; const m = String(id).match(/id_(\d+)/); return m ? parseInt(m[1], 10) : 0; }
-                getAllMembers().forEach(m => {
-                  maxN = Math.max(maxN, extractNum(m.id));
-                  (m.tasks || []).forEach(t => { maxN = Math.max(maxN, extractNum(t.id)); });
-                });
-                nextId = Math.max(nextId, maxN + 1);
-              })();
-              renderAll();
-            } catch(e) { console.error('[BOARD] Realtime sync error:', e); }
-          }
-        });
+        // ❌ Real-time listening disabled — changed to manual refresh via refreshFromCloud() button
+        // _dbRef.on('value', ...) 已禁用，避免频繁刷新打断编辑
       }).catch(err => {
         console.warn('[BOARD] Firebase once() failed:', err);
       });
@@ -1261,6 +1228,48 @@ if (fixDuplicateIds(DATA)) {
 }
 
 let currentTab = 'all';
+
+// ========== MANUAL CLOUD REFRESH ==========
+function refreshFromCloud() {
+  if (!_fbReady || !_dbRef) {
+    showToast('⚠️ 云端未就绪，仅使用本地数据');
+    return;
+  }
+  showToast('🔄 正在从云端拉取最新数据...');
+  _dbRef.once('value').then(snap => {
+    const val = snap.val();
+    const hasMembers = val && typeof val === 'object' && val.design && val.video &&
+      Array.isArray(val.design.members) && Array.isArray(val.video.members) &&
+      (val.design.members.length + val.video.members.length + (val.cp && val.cp.members ? val.cp.members.length : 0)) > 0;
+    if (!hasMembers) { showToast('⚠️ 云端暂无数据'); return; }
+    try {
+      if (!val.other) val.other = { name: '其他', members: [] };
+      if (!val.cp) val.cp = { name: 'CP组', members: [] };
+      [val.design, val.video, val.cp].forEach(g => {
+        g.members.forEach(m => { if (!m.tasks) m.tasks = []; if (!m.color) m.color = '#ffe000'; });
+      });
+      DATA = val;
+      fixDuplicateIds(DATA);
+      // Restore nextId
+      let maxN = 99;
+      function extractNum(id) { if (!id) return 0; const m = String(id).match(/id_(\d+)/); return m ? parseInt(m[1], 10) : 0; }
+      getAllMembers().forEach(m => {
+        maxN = Math.max(maxN, extractNum(m.id));
+        (m.tasks || []).forEach(t => { maxN = Math.max(maxN, extractNum(t.id)); });
+      });
+      nextId = Math.max(nextId, maxN + 1);
+      lsSet('tb_data', JSON.stringify(DATA));
+      renderAll();
+      showToast('✅ 已同步云端最新数据');
+    } catch(e) {
+      console.error('[BOARD] refreshFromCloud error:', e);
+      showToast('⚠️ 同步失败：' + e.message);
+    }
+  }).catch(err => {
+    console.error('[BOARD] refreshFromCloud fetch error:', err);
+    showToast('⚠️ 云端拉取失败');
+  });
+}
 
 function getAllMembers() { return [...DATA.design.members, ...DATA.video.members, ...DATA.cp.members]; }
 let sortByTasks = false;
