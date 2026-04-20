@@ -910,6 +910,37 @@ const COLORS = ['#ffe000','#ff6b35','#00e676','#448aff','#ff4444','#a855f7','#06
 let nextId = 100;
 function genId() { return 'id_' + (nextId++); }
 
+// Scan data and fix any duplicate IDs — returns true if any fix was needed
+function fixDuplicateIds(data) {
+  if (!data) return false;
+  const seen = new Set();
+  let fixedCount = 0;
+  function newId() { return 'id_' + (nextId++); }
+  ['design','video','cp','other'].forEach(key => {
+    if (!data[key] || !Array.isArray(data[key].members)) return;
+    data[key].members.forEach(m => {
+      // Fix duplicate or missing member ID
+      if (!m.id || seen.has(m.id)) {
+        m.id = newId();
+        fixedCount++;
+      }
+      seen.add(m.id);
+      // Fix task IDs within each member
+      const taskSeen = new Set();
+      (m.tasks || []).forEach(t => {
+        if (!t.id || taskSeen.has(t.id) || seen.has(t.id)) {
+          t.id = newId();
+          fixedCount++;
+        }
+        taskSeen.add(t.id);
+        seen.add(t.id);
+      });
+    });
+  });
+  if (fixedCount > 0) console.log('[BOARD] Fixed', fixedCount, 'duplicate IDs');
+  return fixedCount > 0;
+}
+
 function defaultData() {
   return {
     design: { name: '平面组', members: [
@@ -1140,6 +1171,12 @@ function initFirebase() {
                 nextId = Math.max(nextId, maxN + 1);
                 console.log('[BOARD] nextId restored from cloud:', nextId);
               })();
+              // Fix duplicate IDs and push back to cloud if needed
+              if (fixDuplicateIds(DATA)) {
+                lsSet('tb_data', JSON.stringify(DATA));
+                if (_fbReady && _dbRef) { _saving = true; _dbRef.set(DATA).finally(() => { _saving = false; }); }
+                showToast('🔧 已修复数据 ID 冲突');
+              }
               renderAll();
             showToast('📡 已同步云端数据');
           } catch(e) {
@@ -1171,6 +1208,8 @@ function initFirebase() {
               const newJson = JSON.stringify(val);
               if (oldJson === newJson) return;
               DATA = val;
+              // Fix duplicate IDs if any
+              fixDuplicateIds(DATA);
               lsSet('tb_data', JSON.stringify(DATA));
               // Re-restore nextId after Firebase sync
               (function restoreNextIdFromSync() {
@@ -1215,6 +1254,11 @@ let DATA = loadData();
   nextId = Math.max(nextId, maxN + 1);
   console.log('[BOARD] nextId restored to', nextId);
 })();
+
+// Fix any duplicate IDs from historical data
+if (fixDuplicateIds(DATA)) {
+  lsSet('tb_data', JSON.stringify(DATA));
+}
 
 let currentTab = 'all';
 
